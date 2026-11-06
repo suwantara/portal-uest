@@ -1,0 +1,192 @@
+# Portal UEST
+
+Dashboard internal tim: kanban, kalender task, dokumen, dan koleksi link per project.
+
+## Stack
+
+- **SvelteKit 3** + Svelte 5 (runes)
+- **Tailwind CSS 4**
+- **PostgreSQL** + Drizzle ORM
+- **Better Auth** (email + password)
+- **Adapter Node** + Docker
+- **Cloudflare R2** (opsional) untuk penyimpanan dokumen
+
+## Setup lokal
+
+```sh
+pnpm install
+```
+
+Isi `.env` (lihat `.env.example`):
+
+```env
+DATABASE_URL="postgres://user:password@127.0.0.1:5432/portal_uest"
+ORIGIN="http://localhost:5173"
+BETTER_AUTH_SECRET="<32+ karakter acak>"
+STORAGE_DRIVER="local"
+UPLOAD_DIR="uploads"
+```
+
+Buat schema/tabel untuk development:
+
+```sh
+pnpm db:push
+```
+
+Jalankan dev server:
+
+```sh
+pnpm dev
+```
+
+## Peran pengguna
+
+| Role     | Hak akses                                                         |
+| -------- | ----------------------------------------------------------------- |
+| `owner`  | Semua aksi, termasuk mengelola role anggota                       |
+| `admin`  | Membuat/menghapus project, mengelola kolom, mengelola role member |
+| `member` | Membuat/mengedit task, upload dokumen, mengelola link             |
+
+User pertama yang mendaftar otomatis menjadi **owner** dan mendapat workspace
+default beserta project **General**. User berikutnya otomatis bergabung sebagai
+**member**. Owner/admin juga dapat membuat akun anggota langsung dari halaman
+**Tim** (nama, email, password awal, dan role).
+
+Setiap user yang sudah login dapat mengganti password sendiri melalui halaman
+**Akun** (`/settings`) dengan memverifikasi password saat ini.
+
+> Registrasi bersifat terbuka. Untuk produksi, batasi akses ke halaman
+> `/register` (misalnya lewat reverse proxy atau allowlist email) bila workspace
+> tidak boleh diakses publik.
+
+## Struktur data
+
+- `workspace` / `workspace_member` — satu workspace tim dengan role.
+- `project` — pengelompokan pekerjaan.
+- `board_column` — kolom kanban kustom + flag `is_done`.
+- `task` — task dengan prioritas, assignee, dan tenggat (dipakai kalender).
+- `document` — metadata file; isi file disimpan di `UPLOAD_DIR` atau R2.
+- `link_note` — bookmark dengan deskripsi dan tag.
+- Tabel `user`, `session`, `account`, `verification` dikelola Better Auth.
+
+## Deploy dengan Docker
+
+Dockerfile sudah disiapkan (multi-stage, non-root user, healthcheck, dan
+migration otomatis saat container start).
+
+Build dan jalankan secara lokal:
+
+```sh
+docker compose up --build
+```
+
+Atau tanpa compose:
+
+```sh
+docker build -t portal-uest .
+docker run --rm -p 3000:3000 --env-file .env portal-uest
+```
+
+### Deploy di Dokploy (GitHub)
+
+1. Push project ini ke GitHub.
+2. Di Dokploy, buat **Application** baru dan hubungkan repository GitHub.
+3. Pilih build type **Dockerfile**:
+   - Dockerfile Path: `Dockerfile`
+   - Docker Context Path: `.`
+4. Isi environment variables (tab **Environment**).
+5. Tambahkan domain di tab **Domains**, arahkan ke container port **3000**, dan
+   aktifkan HTTPS.
+6. Deploy.
+
+Saat container start, `docker-entrypoint.sh` menjalankan migration ke database
+(`scripts/migrate.mjs` + folder `drizzle/`) sebelum aplikasi dijalankan. Migration
+bersifat idempotent; set `RUN_MIGRATIONS=false` jika ingin mengelolanya manual.
+Untuk lebih dari satu replica, jalankan migration sebagai job terpisah.
+
+### Environment variables di Dokploy
+
+| Variable               | Contoh / keterangan                                      |
+| ---------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`         | Internal Connection URL dari service PostgreSQL          |
+| `ORIGIN`               | `https://portal.example.com` (harus sama dengan domain)  |
+| `BETTER_AUTH_SECRET`   | 32+ karakter acak, jangan diubah setelah ada user        |
+| `STORAGE_DRIVER`       | `r2` untuk produksi, `local` untuk fallback              |
+| `R2_ACCOUNT_ID`        | Account ID Cloudflare                                    |
+| `R2_ACCESS_KEY_ID`     | Access key dari R2 API token                             |
+| `R2_SECRET_ACCESS_KEY` | Secret key dari R2 API token                             |
+| `R2_BUCKET`            | Nama bucket R2                                           |
+| `R2_ENDPOINT`          | Opsional; otomatis dari `R2_ACCOUNT_ID` bila kosong      |
+| `BODY_SIZE_LIMIT`      | `12M` agar upload 10 MB berjalan di adapter Node         |
+| `PROTOCOL_HEADER`      | `x-forwarded-proto` (di belakang Traefik/Dokploy)        |
+| `HOST_HEADER`          | `x-forwarded-host` (di belakang Traefik/Dokploy)         |
+| `UPLOAD_DIR`           | `uploads` (hanya dipakai jika `STORAGE_DRIVER=local`)    |
+| `RUN_MIGRATIONS`       | Default `true`; set `false` untuk menonaktifkan otomatis |
+| `R2_FORCE_PATH_STYLE`  | Opsional; `true` hanya untuk MinIO/path-style endpoint   |
+
+Contoh:
+
+```env
+NODE_ENV=production
+PORT=3000
+HOST=0.0.0.0
+BODY_SIZE_LIMIT=12M
+PROTOCOL_HEADER=x-forwarded-proto
+HOST_HEADER=x-forwarded-host
+
+ORIGIN=https://portal.example.com
+BETTER_AUTH_SECRET=<openssl rand -hex 32>
+DATABASE_URL=postgres://portal_user:password@postgres-service:5432/portal_uest
+
+STORAGE_DRIVER=r2
+R2_ACCOUNT_ID=<cloudflare-account-id>
+R2_ACCESS_KEY_ID=<r2-access-key>
+R2_SECRET_ACCESS_KEY=<r2-secret-key>
+R2_BUCKET=portal-uest
+```
+
+### PostgreSQL di project Dokploy lain
+
+Dokploy mengisolasi service antar project/environment. Jika PostgreSQL berada di
+**project atau environment yang berbeda**, hostname internal database biasanya
+tidak bisa di-resolve dari container aplikasi. Pilihan yang tersedia:
+
+1. **Rekomendasi:** buat Application ini di project/environment yang sama dengan
+   PostgreSQL, lalu gunakan **Internal Connection URL** dari halaman database.
+   Koneksi tetap privat dan tidak keluar dari server.
+2. Jika harus tetap terpisah: aktifkan **External Port** pada PostgreSQL dan
+   gunakan **External Connection URL**. Ini membuka database ke internet, jadi
+   wajib dibatasi lewat firewall/VPN dan gunakan password kuat.
+3. Opsi lanjutan: hubungkan kedua service ke Docker network yang sama di luar
+   alur standar Dokploy. Cara ini tidak otomatis dipertahankan saat redeploy.
+
+Gunakan database khusus untuk aplikasi ini (misalnya `portal_uest`), jangan
+berbagi database dengan aplikasi lain.
+
+### Cloudflare R2
+
+1. Buat bucket privat di Cloudflare R2.
+2. Buat API token R2 dengan permission **Object Read & Write** untuk bucket
+   tersebut.
+3. Isi `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, dan
+   `R2_BUCKET`, lalu set `STORAGE_DRIVER=r2`.
+4. Redeploy aplikasi.
+
+Upload dan download diproksikan lewat server SvelteKit, sehingga bucket tidak
+perlu public dan tidak perlu konfigurasi CORS. Jika memakai `STORAGE_DRIVER=local`,
+mount volume persisten ke `/app/uploads` (sudah disediakan di `docker-compose.yml`).
+
+### Healthcheck
+
+Endpoint `GET /api/health` mengecek koneksi database dan mengembalikan
+`{"status":"ok"}`. Dockerfile sudah memakai endpoint ini sebagai `HEALTHCHECK`;
+di Dokploy Anda juga bisa mengisi healthcheck path `/api/health` pada port 3000.
+
+## Catatan produksi
+
+- `ORIGIN` harus sama persis dengan origin browser (skema + domain + port).
+- Upload dibatasi 10 MB per file dan 5 file per aksi. Set `BODY_SIZE_LIMIT=12M`.
+- `BETTER_AUTH_SECRET` harus stabil; menggantinya akan membatalkan semua sesi.
+- Folder `uploads/` hanya perlu persisten jika memakai `STORAGE_DRIVER=local`.
+- Belum termasuk: reset password via email (forgot password), verifikasi email,
+  undangan/approval anggota, real-time collaboration, dan audit log.

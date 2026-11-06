@@ -1,0 +1,19 @@
+node_modules
+.svelte-kit
+build
+.git
+.github
+.vscode
+
+# Secrets and local state must never be part of the image
+.env
+.env.*
+!.env.example
+uploads
+test-results
+.playwright-mcp
+
+# Not needed to build the image
+tests
+*.log
+README.md
