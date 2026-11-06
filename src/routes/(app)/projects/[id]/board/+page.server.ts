@@ -4,11 +4,18 @@ import { db } from '#lib/server/db/index.ts';
 import { boardColumn, task, user as userTable, workspaceMember } from '#lib/server/db/schema.ts';
 import { requireManager, requireProject } from '#lib/server/auth-guard.ts';
 import {
+	columnIdSchema,
+	createColumnSchema,
+	moveColumnSchema,
+	updateColumnSchema
+} from '#lib/server/schemas.ts';
+import {
 	createTaskAction,
 	deleteTaskAction,
 	moveTaskAction,
 	updateTaskAction
 } from '#lib/server/task-actions.ts';
+import { parseFormData } from '#lib/server/validation.ts';
 import { todayISO } from '#lib/utils.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -84,11 +91,8 @@ export const actions = {
 		requireManager(membership.role);
 
 		const data = await request.formData();
-		const name = String(data.get('name') ?? '').trim();
-		const isDone = data.get('isDone') === 'on';
-
-		if (!name) return fail(400, { error: 'Nama kolom wajib diisi.' });
-		if (name.length > 60) return fail(400, { error: 'Nama kolom maksimal 60 karakter.' });
+		const parsed = parseFormData(createColumnSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
 		const [{ position }] = await db
 			.select({ position: sql<number>`coalesce(max(${boardColumn.position}), -1) + 1` })
@@ -97,9 +101,9 @@ export const actions = {
 
 		await db.insert(boardColumn).values({
 			projectId: project.id,
-			name,
+			name: parsed.data.name,
 			position: Number(position),
-			isDone
+			isDone: parsed.data.isDone
 		});
 
 		return { success: true };
@@ -110,17 +114,13 @@ export const actions = {
 		requireManager(membership.role);
 
 		const data = await request.formData();
-		const columnId = String(data.get('columnId') ?? '');
-		const name = String(data.get('name') ?? '').trim();
-		const isDone = data.get('isDone') === 'on';
-
-		if (!name) return fail(400, { error: 'Nama kolom wajib diisi.' });
-		if (name.length > 60) return fail(400, { error: 'Nama kolom maksimal 60 karakter.' });
+		const parsed = parseFormData(updateColumnSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
 		const updated = await db
 			.update(boardColumn)
-			.set({ name, isDone })
-			.where(and(eq(boardColumn.id, columnId), eq(boardColumn.projectId, project.id)))
+			.set({ name: parsed.data.name, isDone: parsed.data.isDone })
+			.where(and(eq(boardColumn.id, parsed.data.columnId), eq(boardColumn.projectId, project.id)))
 			.returning({ id: boardColumn.id });
 
 		if (!updated.length) return fail(404, { error: 'Kolom tidak ditemukan.' });
@@ -133,7 +133,10 @@ export const actions = {
 		requireManager(membership.role);
 
 		const data = await request.formData();
-		const columnId = String(data.get('columnId') ?? '');
+		const parsed = parseFormData(columnIdSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
+
+		const columnId = parsed.data.columnId;
 
 		const column = await db.query.boardColumn.findFirst({
 			where: and(eq(boardColumn.id, columnId), eq(boardColumn.projectId, project.id))
@@ -162,12 +165,10 @@ export const actions = {
 		requireManager(membership.role);
 
 		const data = await request.formData();
-		const columnId = String(data.get('columnId') ?? '');
-		const direction = String(data.get('direction') ?? '');
+		const parsed = parseFormData(moveColumnSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
-		if (direction !== 'up' && direction !== 'down') {
-			return fail(400, { error: 'Arah perpindahan tidak valid.' });
-		}
+		const { columnId, direction } = parsed.data;
 
 		const columns = await db.query.boardColumn.findMany({
 			where: eq(boardColumn.projectId, project.id),

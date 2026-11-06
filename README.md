@@ -70,6 +70,17 @@ Setiap user yang sudah login dapat mengganti password sendiri melalui halaman
 - `link_note` — bookmark dengan deskripsi dan tag.
 - Tabel `user`, `session`, `account`, `verification` dikelola Better Auth.
 
+## Konvensi backend
+
+- Route `+page.server.ts` / `+server.ts` berperan sebagai controller: cek akses,
+  parse input, lalu panggil helper domain di `src/lib/server/`.
+- Validasi input memakai schema Zod di `src/lib/server/schemas.ts` dan helper
+  `parseFormData` di `src/lib/server/validation.ts`.
+- Error yang memang bisa ditampilkan ke user memakai `fail()` atau `error()`.
+- Error tak terduga ditangani terpusat oleh `handleError` di `src/hooks.server.ts`;
+  error 5xx dicatat ke log dan diberi `errorId` untuk tracing tanpa membocorkan
+  detail internal ke browser.
+
 ## Deploy dengan Docker
 
 Dockerfile sudah disiapkan (multi-stage, non-root user, healthcheck, dan

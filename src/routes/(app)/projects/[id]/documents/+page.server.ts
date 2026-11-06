@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { document, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
+import { documentIdSchema } from '#lib/server/schemas.ts';
 import {
 	deleteUpload,
 	isFile,
@@ -10,6 +11,7 @@ import {
 	MAX_FILE_SIZE,
 	saveUpload
 } from '#lib/server/uploads.ts';
+import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -72,7 +74,8 @@ export const actions = {
 					uploadedBy: user.id
 				});
 			}
-		} catch {
+		} catch (error) {
+			console.error('[documents] Failed to upload files', error);
 			await Promise.all(savedKeys.map((key) => deleteUpload(key)));
 			return fail(500, { error: 'Gagal menyimpan file. Silakan coba lagi.' });
 		}
@@ -83,10 +86,11 @@ export const actions = {
 	deleteDocument: async ({ request, params }) => {
 		const { project } = await requireProject(params.id);
 		const data = await request.formData();
-		const documentId = String(data.get('documentId') ?? '');
+		const parsed = parseFormData(documentIdSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
 		const found = await db.query.document.findFirst({
-			where: and(eq(document.id, documentId), eq(document.projectId, project.id))
+			where: and(eq(document.id, parsed.data.documentId), eq(document.projectId, project.id))
 		});
 
 		if (!found) return fail(404, { error: 'Dokumen tidak ditemukan.' });

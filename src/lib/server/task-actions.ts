@@ -1,22 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { and, eq, sql } from 'drizzle-orm';
-import { db } from './db';
-import { boardColumn, project, task, workspaceMember, type TaskPriority } from './db/schema';
-
-const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
-
-function value(data: FormData, key: string): string {
-	return String(data.get(key) ?? '').trim();
-}
-
-function parseDueDate(data: FormData): string | null | undefined {
-	const raw = value(data, 'dueDate');
-	if (!raw) return null;
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
-	const date = new Date(`${raw}T00:00:00Z`);
-	if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== raw) return undefined;
-	return raw;
-}
+import { db } from './db/index.ts';
+import { boardColumn, project, task, workspaceMember } from './db/schema.ts';
+import { createTaskSchema, moveTaskSchema, taskIdSchema, updateTaskSchema } from './schemas.ts';
+import { parseFormData } from './validation.ts';
 
 async function validateProject(projectId: string, workspaceId: string) {
 	const found = await db.query.project.findFirst({
@@ -39,23 +26,26 @@ async function validateAssignee(assigneeId: string, workspaceId: string): Promis
 	return Boolean(member);
 }
 
+async function nextPosition(projectId: string, columnId: string): Promise<number> {
+	const [{ position }] = await db
+		.select({ position: sql<number>`coalesce(max(${task.position}), -1) + 1` })
+		.from(task)
+		.where(and(eq(task.projectId, projectId), eq(task.columnId, columnId)));
+
+	return Number(position);
+}
+
 export async function createTaskAction(
 	projectId: string,
 	workspaceId: string,
 	userId: string,
 	data: FormData
 ) {
-	const title = value(data, 'title');
-	const description = value(data, 'description');
-	const priority = value(data, 'priority') as TaskPriority;
-	const columnId = value(data, 'columnId');
-	const assigneeId = value(data, 'assigneeId');
-	const dueDate = parseDueDate(data);
+	const parsed = parseFormData(createTaskSchema, data);
+	if (!parsed.success) return fail(400, { error: parsed.error });
 
-	if (!title) return fail(400, { error: 'Judul task wajib diisi.' });
-	if (title.length > 200) return fail(400, { error: 'Judul task maksimal 200 karakter.' });
-	if (!PRIORITIES.includes(priority)) return fail(400, { error: 'Prioritas tidak valid.' });
-	if (dueDate === undefined) return fail(400, { error: 'Tanggal tenggat tidak valid.' });
+	const { title, description, priority, columnId, assigneeId, dueDate } = parsed.data;
+
 	if (!(await validateProject(projectId, workspaceId))) {
 		return fail(404, { error: 'Project tidak ditemukan.' });
 	}
@@ -66,11 +56,6 @@ export async function createTaskAction(
 		return fail(400, { error: 'Assignee bukan anggota tim.' });
 	}
 
-	const [{ position }] = await db
-		.select({ position: sql<number>`coalesce(max(${task.position}), -1) + 1` })
-		.from(task)
-		.where(and(eq(task.projectId, projectId), eq(task.columnId, columnId)));
-
 	await db.insert(task).values({
 		projectId,
 		columnId,
@@ -78,8 +63,8 @@ export async function createTaskAction(
 		description: description || null,
 		priority,
 		assigneeId: assigneeId || null,
-		dueDate,
-		position: Number(position),
+		dueDate: dueDate || null,
+		position: await nextPosition(projectId, columnId),
 		createdBy: userId
 	});
 
@@ -87,19 +72,10 @@ export async function createTaskAction(
 }
 
 export async function updateTaskAction(projectId: string, data: FormData) {
-	const taskId = value(data, 'taskId');
-	const title = value(data, 'title');
-	const description = value(data, 'description');
-	const priority = value(data, 'priority') as TaskPriority;
-	const columnId = value(data, 'columnId');
-	const assigneeId = value(data, 'assigneeId');
-	const dueDate = parseDueDate(data);
+	const parsed = parseFormData(updateTaskSchema, data);
+	if (!parsed.success) return fail(400, { error: parsed.error });
 
-	if (!taskId) return fail(400, { error: 'Task tidak ditemukan.' });
-	if (!title) return fail(400, { error: 'Judul task wajib diisi.' });
-	if (title.length > 200) return fail(400, { error: 'Judul task maksimal 200 karakter.' });
-	if (!PRIORITIES.includes(priority)) return fail(400, { error: 'Prioritas tidak valid.' });
-	if (dueDate === undefined) return fail(400, { error: 'Tanggal tenggat tidak valid.' });
+	const { taskId, title, description, priority, columnId, assigneeId, dueDate } = parsed.data;
 
 	const existing = await db.query.task.findFirst({
 		where: and(eq(task.id, taskId), eq(task.projectId, projectId))
@@ -107,8 +83,9 @@ export async function updateTaskAction(projectId: string, data: FormData) {
 
 	if (!existing) return fail(404, { error: 'Task tidak ditemukan.' });
 
-	const column = await validateColumn(projectId, columnId);
-	if (!column) return fail(400, { error: 'Kolom tidak valid.' });
+	if (!(await validateColumn(projectId, columnId))) {
+		return fail(400, { error: 'Kolom tidak valid.' });
+	}
 
 	const projectRow = await db.query.project.findFirst({
 		where: eq(project.id, projectId)
@@ -118,14 +95,8 @@ export async function updateTaskAction(projectId: string, data: FormData) {
 		return fail(400, { error: 'Assignee bukan anggota tim.' });
 	}
 
-	let position = existing.position;
-	if (existing.columnId !== columnId) {
-		const [{ next }] = await db
-			.select({ next: sql<number>`coalesce(max(${task.position}), -1) + 1` })
-			.from(task)
-			.where(and(eq(task.projectId, projectId), eq(task.columnId, columnId)));
-		position = Number(next);
-	}
+	const position =
+		existing.columnId === columnId ? existing.position : await nextPosition(projectId, columnId);
 
 	await db
 		.update(task)
@@ -135,7 +106,7 @@ export async function updateTaskAction(projectId: string, data: FormData) {
 			priority,
 			columnId,
 			assigneeId: assigneeId || null,
-			dueDate,
+			dueDate: dueDate || null,
 			position,
 			updatedAt: new Date()
 		})
@@ -145,12 +116,12 @@ export async function updateTaskAction(projectId: string, data: FormData) {
 }
 
 export async function deleteTaskAction(projectId: string, data: FormData) {
-	const taskId = value(data, 'taskId');
-	if (!taskId) return fail(400, { error: 'Task tidak ditemukan.' });
+	const parsed = parseFormData(taskIdSchema, data);
+	if (!parsed.success) return fail(400, { error: parsed.error });
 
 	const deleted = await db
 		.delete(task)
-		.where(and(eq(task.id, taskId), eq(task.projectId, projectId)))
+		.where(and(eq(task.id, parsed.data.taskId), eq(task.projectId, projectId)))
 		.returning({ id: task.id });
 
 	if (!deleted.length) return fail(404, { error: 'Task tidak ditemukan.' });
@@ -159,10 +130,10 @@ export async function deleteTaskAction(projectId: string, data: FormData) {
 }
 
 export async function moveTaskAction(projectId: string, data: FormData) {
-	const taskId = value(data, 'taskId');
-	const columnId = value(data, 'columnId');
+	const parsed = parseFormData(moveTaskSchema, data);
+	if (!parsed.success) return fail(400, { error: parsed.error });
 
-	if (!taskId || !columnId) return fail(400, { error: 'Data perpindahan tidak lengkap.' });
+	const { taskId, columnId } = parsed.data;
 
 	const existing = await db.query.task.findFirst({
 		where: and(eq(task.id, taskId), eq(task.projectId, projectId))
@@ -174,14 +145,9 @@ export async function moveTaskAction(projectId: string, data: FormData) {
 	}
 	if (existing.columnId === columnId) return { success: true };
 
-	const [{ next }] = await db
-		.select({ next: sql<number>`coalesce(max(${task.position}), -1) + 1` })
-		.from(task)
-		.where(and(eq(task.projectId, projectId), eq(task.columnId, columnId)));
-
 	await db
 		.update(task)
-		.set({ columnId, position: Number(next), updatedAt: new Date() })
+		.set({ columnId, position: await nextPosition(projectId, columnId), updatedAt: new Date() })
 		.where(and(eq(task.id, taskId), eq(task.projectId, projectId)));
 
 	return { success: true };

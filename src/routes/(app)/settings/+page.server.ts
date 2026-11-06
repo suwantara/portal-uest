@@ -1,6 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { auth } from '#lib/server/auth.ts';
 import { requireWorkspace } from '#lib/server/auth-guard.ts';
+import { changePasswordSchema } from '#lib/server/schemas.ts';
+import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 function isWrongPassword(error: unknown): boolean {
@@ -34,24 +36,11 @@ export const actions = {
 		await requireWorkspace();
 
 		const data = await request.formData();
-		const currentPassword = String(data.get('currentPassword') ?? '');
-		const newPassword = String(data.get('newPassword') ?? '');
-		const confirmPassword = String(data.get('confirmPassword') ?? '');
-		const revokeOtherSessions = data.get('revokeOtherSessions') === 'on';
+		const parsed = parseFormData(changePasswordSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
-		if (!currentPassword) return fail(400, { error: 'Password saat ini wajib diisi.' });
-		if (newPassword.length < 8) {
-			return fail(400, { error: 'Password baru minimal 8 karakter.' });
-		}
-		if (newPassword.length > 128) {
-			return fail(400, { error: 'Password baru maksimal 128 karakter.' });
-		}
-		if (newPassword !== confirmPassword) {
-			return fail(400, { error: 'Konfirmasi password baru tidak sama.' });
-		}
-		if (newPassword === currentPassword) {
-			return fail(400, { error: 'Password baru harus berbeda dari password saat ini.' });
-		}
+		const { currentPassword, newPassword } = parsed.data;
+		const revokeOtherSessions = data.get('revokeOtherSessions') === 'on';
 
 		try {
 			await auth.api.changePassword({

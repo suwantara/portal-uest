@@ -9,7 +9,10 @@ declare global {
 			session?: Session;
 		}
 
-		// interface Error {}
+		interface Error {
+			errorId?: string;
+		}
+
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}

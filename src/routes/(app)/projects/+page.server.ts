@@ -3,10 +3,10 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { boardColumn, document, linkNote, project, task } from '#lib/server/db/schema.ts';
 import { requireManager, requireWorkspace } from '#lib/server/auth-guard.ts';
+import { createProjectSchema, projectIdSchema } from '#lib/server/schemas.ts';
+import { parseFormData } from '#lib/server/validation.ts';
 import { DEFAULT_COLUMNS } from '#lib/server/workspace.ts';
 import type { Actions, PageServerLoad } from './$types';
-
-const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 export const load: PageServerLoad = async () => {
 	const { workspace, membership } = await requireWorkspace();
@@ -73,13 +73,10 @@ export const actions = {
 		requireManager(membership.role);
 
 		const data = await request.formData();
-		const name = String(data.get('name') ?? '').trim();
-		const description = String(data.get('description') ?? '').trim();
-		const color = String(data.get('color') ?? '#6366f1');
+		const parsed = parseFormData(createProjectSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
-		if (name.length < 2) return fail(400, { error: 'Nama project minimal 2 karakter.' });
-		if (name.length > 80) return fail(400, { error: 'Nama project maksimal 80 karakter.' });
-		if (!COLOR_PATTERN.test(color)) return fail(400, { error: 'Warna tidak valid.' });
+		const { name, description, color } = parsed.data;
 
 		const [created] = await db
 			.insert(project)
@@ -109,11 +106,12 @@ export const actions = {
 		requireManager(membership.role);
 
 		const data = await request.formData();
-		const projectId = String(data.get('projectId') ?? '');
+		const parsed = parseFormData(projectIdSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
 		const deleted = await db
 			.delete(project)
-			.where(and(eq(project.id, projectId), eq(project.workspaceId, workspace.id)))
+			.where(and(eq(project.id, parsed.data.projectId), eq(project.workspaceId, workspace.id)))
 			.returning({ id: project.id });
 
 		if (!deleted.length) return fail(404, { error: 'Project tidak ditemukan.' });

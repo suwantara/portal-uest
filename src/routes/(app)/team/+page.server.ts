@@ -6,15 +6,14 @@ import {
 	project,
 	task,
 	user as userTable,
-	workspaceMember,
-	type WorkspaceRole
+	workspaceMember
 } from '#lib/server/db/schema.ts';
 import { requireManager, requireWorkspace } from '#lib/server/auth-guard.ts';
 import { ensureWorkspaceMembership } from '#lib/server/workspace.ts';
 import { auth } from '#lib/server/auth.ts';
+import { createMemberSchema, updateRoleSchema } from '#lib/server/schemas.ts';
+import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const load: PageServerLoad = async ({ url }) => {
 	const { workspace, membership } = await requireWorkspace();
@@ -63,19 +62,11 @@ export const actions = {
 		requireManager(membership.role);
 
 		const data = await request.formData();
-		const name = String(data.get('name') ?? '').trim();
-		const email = String(data.get('email') ?? '')
-			.trim()
-			.toLowerCase();
-		const password = String(data.get('password') ?? '');
-		const role = String(data.get('role') ?? 'member') as WorkspaceRole;
+		const parsed = parseFormData(createMemberSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
-		if (name.length < 2) return fail(400, { error: 'Nama minimal 2 karakter.' });
-		if (name.length > 80) return fail(400, { error: 'Nama maksimal 80 karakter.' });
-		if (!EMAIL_PATTERN.test(email)) return fail(400, { error: 'Format email tidak valid.' });
-		if (password.length < 8) return fail(400, { error: 'Password minimal 8 karakter.' });
-		if (password.length > 128) return fail(400, { error: 'Password maksimal 128 karakter.' });
-		if (!['admin', 'member'].includes(role)) return fail(400, { error: 'Role tidak valid.' });
+		const { name, password, role } = parsed.data;
+		const email = parsed.data.email.toLowerCase();
 
 		const context = await auth.$context;
 		const existing = await context.internalAdapter.findUserByEmail(email);
@@ -116,9 +107,13 @@ export const actions = {
 			}
 
 			return { success: true, name };
-		} catch {
+		} catch (error) {
+			console.error('[team] Failed to create member', error);
+
 			if (createdId) {
-				await context.internalAdapter.deleteUser(createdId).catch(() => {});
+				await context.internalAdapter.deleteUser(createdId).catch((cleanupError) => {
+					console.error('[team] Failed to clean up member after error', cleanupError);
+				});
 			}
 
 			return fail(500, { error: 'Gagal membuat anggota. Coba lagi.' });
@@ -130,15 +125,13 @@ export const actions = {
 		requireManager(membership.role);
 
 		const data = await request.formData();
-		const userId = String(data.get('userId') ?? '');
-		const role = String(data.get('role') ?? '') as WorkspaceRole;
+		const parsed = parseFormData(updateRoleSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
+
+		const { userId, role } = parsed.data;
 
 		if (userId === user.id) {
 			return fail(400, { error: 'Anda tidak dapat mengubah role sendiri.' });
-		}
-
-		if (!['admin', 'member'].includes(role)) {
-			return fail(400, { error: 'Role tidak valid.' });
 		}
 
 		const target = await db.query.workspaceMember.findFirst({

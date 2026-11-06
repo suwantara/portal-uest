@@ -3,32 +3,9 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { linkNote, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
+import { createLinkSchema, linkIdSchema, updateLinkSchema } from '#lib/server/schemas.ts';
+import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
-
-function normalizeUrl(value: string): string | null {
-	const trimmed = value.trim();
-	if (!trimmed) return null;
-	const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-
-	try {
-		const parsed = new URL(candidate);
-		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-		return parsed.toString();
-	} catch {
-		return null;
-	}
-}
-
-function parseTags(value: string): string[] {
-	return [
-		...new Set(
-			value
-				.split(',')
-				.map((tag) => tag.trim().toLowerCase())
-				.filter(Boolean)
-		)
-	].slice(0, 8);
-}
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { project, membership } = await requireProject(params.id);
@@ -59,14 +36,10 @@ export const actions = {
 	createLink: async ({ request, params }) => {
 		const { project, user } = await requireProject(params.id);
 		const data = await request.formData();
-		const title = String(data.get('title') ?? '').trim();
-		const url = normalizeUrl(String(data.get('url') ?? ''));
-		const description = String(data.get('description') ?? '').trim();
-		const tags = parseTags(String(data.get('tags') ?? ''));
+		const parsed = parseFormData(createLinkSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
-		if (!title) return fail(400, { error: 'Judul link wajib diisi.' });
-		if (title.length > 160) return fail(400, { error: 'Judul maksimal 160 karakter.' });
-		if (!url) return fail(400, { error: 'URL tidak valid. Gunakan alamat http atau https.' });
+		const { title, url, description, tags } = parsed.data;
 
 		await db.insert(linkNote).values({
 			projectId: project.id,
@@ -83,14 +56,10 @@ export const actions = {
 	updateLink: async ({ request, params }) => {
 		const { project } = await requireProject(params.id);
 		const data = await request.formData();
-		const linkId = String(data.get('linkId') ?? '');
-		const title = String(data.get('title') ?? '').trim();
-		const url = normalizeUrl(String(data.get('url') ?? ''));
-		const description = String(data.get('description') ?? '').trim();
-		const tags = parseTags(String(data.get('tags') ?? ''));
+		const parsed = parseFormData(updateLinkSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
-		if (!title) return fail(400, { error: 'Judul link wajib diisi.' });
-		if (!url) return fail(400, { error: 'URL tidak valid. Gunakan alamat http atau https.' });
+		const { linkId, title, url, description, tags } = parsed.data;
 
 		const updated = await db
 			.update(linkNote)
@@ -112,11 +81,12 @@ export const actions = {
 	deleteLink: async ({ request, params }) => {
 		const { project } = await requireProject(params.id);
 		const data = await request.formData();
-		const linkId = String(data.get('linkId') ?? '');
+		const parsed = parseFormData(linkIdSchema, data);
+		if (!parsed.success) return fail(400, { error: parsed.error });
 
 		const deleted = await db
 			.delete(linkNote)
-			.where(and(eq(linkNote.id, linkId), eq(linkNote.projectId, project.id)))
+			.where(and(eq(linkNote.id, parsed.data.linkId), eq(linkNote.projectId, project.id)))
 			.returning({ id: linkNote.id });
 
 		if (!deleted.length) return fail(404, { error: 'Link tidak ditemukan.' });

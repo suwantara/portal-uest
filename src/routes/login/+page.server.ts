@@ -1,6 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '#lib/server/auth.ts';
 import { isRegistrationEnabled } from '#lib/server/registration.ts';
+import { loginSchema } from '#lib/server/schemas.ts';
+import { formDataToObject, parseFormData } from '#lib/server/validation.ts';
 import { safeRedirect } from '#lib/utils.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -19,15 +21,15 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 export const actions = {
 	default: async ({ request }) => {
 		const data = await request.formData();
-		const email = String(data.get('email') ?? '')
-			.trim()
-			.toLowerCase();
-		const password = String(data.get('password') ?? '');
-		const redirectTo = safeRedirect(String(data.get('redirectTo') ?? ''));
+		const parsed = parseFormData(loginSchema, data);
 
-		if (!email || !password) {
-			return fail(400, { email, error: 'Email dan password wajib diisi.' });
+		if (!parsed.success) {
+			return fail(400, { email: formDataToObject(data).email ?? '', error: parsed.error });
 		}
+
+		const email = parsed.data.email.toLowerCase();
+		const password = parsed.data.password;
+		const redirectTo = safeRedirect(parsed.data.redirectTo);
 
 		try {
 			await auth.api.signInEmail({ body: { email, password } });

@@ -1,6 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '#lib/server/auth.ts';
 import { isRegistrationEnabled } from '#lib/server/registration.ts';
+import { registerSchema } from '#lib/server/schemas.ts';
+import { formDataToObject, parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -19,28 +21,20 @@ export const actions = {
 		}
 
 		const data = await request.formData();
-		const name = String(data.get('name') ?? '').trim();
-		const email = String(data.get('email') ?? '')
-			.trim()
-			.toLowerCase();
-		const password = String(data.get('password') ?? '');
-		const confirmPassword = String(data.get('confirmPassword') ?? '');
+		const parsed = parseFormData(registerSchema, data);
 
-		if (name.length < 2) {
-			return fail(400, { name, email, error: 'Nama minimal 2 karakter.' });
+		if (!parsed.success) {
+			const values = formDataToObject(data);
+			return fail(400, {
+				name: values.name ?? '',
+				email: values.email ?? '',
+				error: parsed.error
+			});
 		}
 
-		if (!email) {
-			return fail(400, { name, email, error: 'Email wajib diisi.' });
-		}
-
-		if (password.length < 8) {
-			return fail(400, { name, email, error: 'Password minimal 8 karakter.' });
-		}
-
-		if (password !== confirmPassword) {
-			return fail(400, { name, email, error: 'Konfirmasi password tidak sama.' });
-		}
+		const name = parsed.data.name;
+		const email = parsed.data.email.toLowerCase();
+		const password = parsed.data.password;
 
 		try {
 			await auth.api.signUpEmail({

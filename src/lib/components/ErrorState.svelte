@@ -68,6 +68,13 @@
 	</h1>
 	<p class="mt-3 max-w-md text-sm leading-relaxed text-slate-500">{state.message}</p>
 
+	{#if page.error?.errorId}
+		<p class="mt-4 text-xs text-slate-400">
+			Kode kesalahan:
+			<span class="font-mono text-slate-500">{page.error.errorId}</span>
+		</p>
+	{/if}
+
 	<div class="mt-8 flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
 		<a
 			href={resolve('/(app)/dashboard')}
