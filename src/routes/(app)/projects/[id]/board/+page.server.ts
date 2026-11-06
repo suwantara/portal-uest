@@ -21,7 +21,9 @@ import { parseFormData } from '#lib/server/validation.ts';
 import { todayISO } from '#lib/utils.ts';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, depends }) => {
+	depends('app:board');
+
 	const { project, workspace, membership } = await requireProject(params.id);
 
 	const [columns, tasks, members] = await Promise.all([

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { deserialize, enhance } from '$app/forms';
-	import { refreshAll } from '$app/navigation';
+	import { invalidate, refreshAll } from '$app/navigation';
 	import { SvelteMap } from 'svelte/reactivity';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -28,6 +28,32 @@
 	let dragging = $state<string | null>(null);
 	let dragOver = $state<string | null>(null);
 	let overrides = $state<Record<string, string>>({});
+	let lastSynced = $state('');
+
+	async function syncBoard() {
+		if (document.visibilityState !== 'visible' || dragging) return;
+
+		await invalidate('app:board');
+		lastSynced = new Intl.DateTimeFormat('id-ID', {
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit'
+		}).format(new Date());
+	}
+
+	$effect(() => {
+		const timer = setInterval(syncBoard, 10_000);
+		const onVisibilityChange = () => {
+			if (document.visibilityState === 'visible') syncBoard();
+		};
+
+		document.addEventListener('visibilitychange', onVisibilityChange);
+
+		return () => {
+			clearInterval(timer);
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+		};
+	});
 
 	const today = $derived(data.today);
 	const canManage = $derived(data.role === 'owner' || data.role === 'admin');
@@ -129,7 +155,7 @@
 
 <div class="space-y-5">
 	<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-		<div class="flex items-center gap-2 text-xs text-slate-400">
+		<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
 			<span
 				class="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 shadow-sm ring-1 ring-slate-200"
 			>
@@ -141,6 +167,13 @@
 			>
 				<Icon name="check-circle" size={13} />
 				{totalTasks} task
+			</span>
+			<span
+				class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700 ring-1 ring-emerald-200"
+				title="Board diperbarui otomatis setiap 10 detik"
+			>
+				<span class="size-1.5 animate-pulse rounded-full bg-emerald-500"></span>
+				Auto-sync{lastSynced ? ` · ${lastSynced}` : ''}
 			</span>
 		</div>
 
