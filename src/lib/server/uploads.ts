@@ -20,6 +20,29 @@ import {
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_FILES_PER_UPLOAD = 5;
 
+const VIDEO_EXTENSIONS = new Set([
+	'mp4',
+	'm4v',
+	'mov',
+	'avi',
+	'mkv',
+	'webm',
+	'wmv',
+	'flv',
+	'mpeg',
+	'mpg',
+	'3gp',
+	'ogv',
+	'ts'
+]);
+
+export function isVideoFile(file: File): boolean {
+	if (file.type.startsWith('video/')) return true;
+
+	const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+	return VIDEO_EXTENSIONS.has(extension);
+}
+
 const root = path.resolve(UPLOAD_DIR);
 
 type R2Config = {

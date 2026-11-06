@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
-	import { cn } from '#lib/utils.ts';
+	import { cn, formatBytes } from '#lib/utils.ts';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -37,6 +37,14 @@
 		admin: 'Admin',
 		member: 'Member'
 	};
+
+	const storageTone = $derived(
+		data.storage.percent >= 90
+			? 'bg-rose-400'
+			: data.storage.percent >= 75
+				? 'bg-amber-400'
+				: 'bg-indigo-400'
+	);
 
 	function isActive(match: string): boolean {
 		return page.url.pathname === match || page.url.pathname.startsWith(`${match}/`);
@@ -152,6 +160,22 @@
 						<p class="px-3 py-2 text-xs text-slate-500">Belum ada project.</p>
 					{/each}
 				</div>
+			</div>
+
+			<div class="mx-3 mt-6 rounded-xl bg-white/5 p-3">
+				<div class="flex items-center justify-between text-[11px]">
+					<span class="font-medium text-slate-300">Penyimpanan</span>
+					<span class="text-slate-500">{Math.round(data.storage.percent)}%</span>
+				</div>
+				<div class="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+					<div
+						class={`h-full rounded-full transition-all ${storageTone}`}
+						style={`width: ${Math.min(100, data.storage.percent)}%`}
+					></div>
+				</div>
+				<p class="mt-1.5 text-[10px] text-slate-500">
+					{formatBytes(data.storage.remaining)} tersisa dari {formatBytes(data.storage.limit)}
+				</p>
 			</div>
 		</div>
 

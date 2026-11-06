@@ -254,7 +254,7 @@
 <Modal
 	bind:open={uploadOpen}
 	title="Upload dokumen"
-	description="Maksimal 5 file sekaligus, masing-masing maksimal 10 MB."
+	description="Maksimal 5 file sekaligus, 10 MB per file. Upload video tidak diizinkan."
 >
 	<form
 		method="POST"
@@ -291,8 +291,9 @@
 			<span class="mt-3 text-sm font-semibold text-slate-700">
 				Klik untuk memilih file atau tarik ke sini
 			</span>
-			<span class="mt-1 text-xs text-slate-400">PDF, gambar, dokumen, spreadsheet, dan lainnya</span
-			>
+			<span class="mt-1 text-xs text-slate-400">
+				PDF, gambar, dokumen, spreadsheet. Upload video tidak diizinkan.
+			</span>
 			<input
 				bind:this={fileInput}
 				type="file"

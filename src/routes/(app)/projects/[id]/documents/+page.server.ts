@@ -5,13 +5,16 @@ import { document, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
 import { deleteDocumentAction, updateDocumentAction } from '#lib/server/document-actions.ts';
 import { updateProjectAction } from '#lib/server/project-actions.ts';
+import { getStorageSummary } from '#lib/server/storage.ts';
 import {
 	deleteUpload,
 	isFile,
+	isVideoFile,
 	MAX_FILES_PER_UPLOAD,
 	MAX_FILE_SIZE,
 	saveUpload
 } from '#lib/server/uploads.ts';
+import { formatBytes } from '#lib/utils.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -44,7 +47,7 @@ export const actions = {
 	updateProject: updateProjectAction,
 
 	uploadDocuments: async ({ request, params }) => {
-		const { project, user } = await requireProject(params.id);
+		const { project, workspace, user } = await requireProject(params.id);
 		const data = await request.formData();
 		const files = data.getAll('files').filter(isFile);
 
@@ -56,10 +59,26 @@ export const actions = {
 			});
 		}
 
+		const video = files.find(isVideoFile);
+		if (video) {
+			return fail(400, {
+				error: `File "${video.name}" adalah video. Upload video tidak diizinkan; hanya dokumen.`
+			});
+		}
+
 		const oversized = files.find((file) => file.size > MAX_FILE_SIZE);
 		if (oversized) {
 			return fail(400, {
 				error: `File "${oversized.name}" melebihi batas 10 MB.`
+			});
+		}
+
+		const storage = await getStorageSummary(workspace.id);
+		const incomingBytes = files.reduce((total, file) => total + file.size, 0);
+
+		if (storage.used + incomingBytes > storage.limit) {
+			return fail(400, {
+				error: `Kuota penyimpanan tidak cukup. Sisa ${formatBytes(storage.remaining)} dari ${formatBytes(storage.limit)}.`
 			});
 		}
 

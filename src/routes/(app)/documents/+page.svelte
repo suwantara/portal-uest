@@ -19,6 +19,13 @@
 
 	const totalSize = $derived(data.documents.reduce((total, item) => total + item.size, 0));
 	const canManage = $derived(data.role === 'owner' || data.role === 'admin');
+	const storageTone = $derived(
+		data.storage.percent >= 90
+			? 'bg-rose-500'
+			: data.storage.percent >= 75
+				? 'bg-amber-500'
+				: 'bg-indigo-500'
+	);
 
 	const typeTone: Record<string, string> = {
 		image: 'bg-emerald-50 text-emerald-600',
@@ -74,7 +81,7 @@
 		<div>
 			<h1 class="text-2xl font-semibold tracking-tight text-slate-900">Dokumen</h1>
 			<p class="mt-1 text-sm text-slate-500">
-				Semua dokumen dari {data.projectCount} project yang dapat Anda akses.
+				Semua dokumen workspace dari {data.projectCount} project.
 			</p>
 		</div>
 
@@ -93,6 +100,29 @@
 			</span>
 		</div>
 	</header>
+
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<h2 class="text-sm font-semibold text-slate-900">Kuota penyimpanan</h2>
+				<p class="mt-0.5 text-xs text-slate-400">
+					Batas dokumen 8 GB, menyisakan ambang aman dari kuota R2 10 GB.
+				</p>
+			</div>
+			<p class="text-xs font-medium text-slate-500">
+				{formatBytes(data.storage.used)} / {formatBytes(data.storage.limit)}
+			</p>
+		</div>
+		<div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+			<div
+				class={`h-full rounded-full transition-all ${storageTone}`}
+				style={`width: ${Math.min(100, data.storage.percent)}%`}
+			></div>
+		</div>
+		<p class="mt-2 text-xs text-slate-400">
+			{formatBytes(data.storage.remaining)} tersisa · {Math.round(data.storage.percent)}% terpakai
+		</p>
+	</section>
 
 	{#if data.documents.length}
 		<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -214,7 +244,7 @@
 		</div>
 
 		<p class="text-xs text-slate-400">
-			Semua anggota project dapat melihat dan mengunduh dokumen. Hanya pengunggah atau owner/admin
+			Semua anggota workspace dapat melihat dan mengunduh dokumen. Hanya pengunggah atau owner/admin
 			yang dapat mengedit dan menghapus.
 		</p>
 	{:else}
@@ -228,7 +258,8 @@
 			</span>
 			<h2 class="mt-4 text-base font-semibold text-slate-800">Belum ada dokumen</h2>
 			<p class="mt-1 max-w-sm text-sm text-slate-400">
-				Dokumen diunggah dari halaman masing-masing project, lalu akan muncul di sini.
+				Dokumen diunggah dari halaman masing-masing project, lalu muncul di sini untuk seluruh
+				anggota workspace.
 			</p>
 			<a
 				href={resolve('/(app)/projects')}

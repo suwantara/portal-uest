@@ -47,5 +47,12 @@ export const variables = defineEnvVars({
 	R2_FORCE_PATH_STYLE: {
 		description: 'Use path-style S3 URLs. Set `true` for MinIO or other non-R2 test endpoints.',
 		schema: (value) => value === 'true'
+	},
+	STORAGE_QUOTA_BYTES: {
+		description: 'Total document storage quota for the workspace in bytes (default: 8 GiB).',
+		schema: (value) => {
+			const parsed = Number(value);
+			return Number.isFinite(parsed) && parsed > 0 ? parsed : 8 * 1024 ** 3;
+		}
 	}
 });

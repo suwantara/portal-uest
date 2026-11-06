@@ -79,14 +79,21 @@ pada header project.
 
 ### Dokumen
 
-- Menu **Dokumen** di sidebar menampilkan semua dokumen dari project yang dapat
-  diakses user.
-- Semua anggota project dapat melihat daftar, mengunduh, dan preview PDF.
+- Menu **Dokumen** di sidebar menampilkan dokumen dari **semua project di
+  workspace**, sehingga sie lain dapat melihat dan mengunduh dokumen yang
+  dibutuhkan.
+- Semua anggota workspace dapat melihat daftar, mengunduh, dan preview PDF.
 - Preview PDF memakai `Content-Disposition: inline`; file non-PDF tetap diunduh
   sebagai attachment.
 - Hanya pengunggah dokumen atau owner/admin yang dapat mengubah nama dan
   menghapus dokumen.
-- Upload tetap dilakukan dari tab **Dokumen** pada masing-masing project.
+- Upload tetap dilakukan dari tab **Dokumen** pada project; hanya anggota project
+  tersebut yang dapat mengunggah.
+- Upload video ditolak berdasarkan MIME type dan ekstensi file.
+- Kuota penyimpanan dokumen workspace adalah **8 GB** (default
+  `STORAGE_QUOTA_BYTES=8589934592`), menyisakan ambang aman dari kuota R2 free
+  10 GB. Upload ditolak jika total melebihi kuota.
+- Indikator sisa kuota tampil di sidebar dan halaman **Dokumen**.
 
 ## Struktur data
 
@@ -162,6 +169,7 @@ job terpisah.
 | `R2_BUCKET`                | Nama bucket R2                                           |
 | `R2_ENDPOINT`              | Opsional; otomatis dari `R2_ACCOUNT_ID` bila kosong      |
 | `BODY_SIZE_LIMIT`          | `12M` agar upload 10 MB berjalan di adapter Node         |
+| `STORAGE_QUOTA_BYTES`      | Kuota dokumen, default `8589934592` (8 GiB)              |
 | `PROTOCOL_HEADER`          | `x-forwarded-proto` (di belakang Traefik/Dokploy)        |
 | `HOST_HEADER`              | `x-forwarded-host` (di belakang Traefik/Dokploy)         |
 | `UPLOAD_DIR`               | `uploads` (hanya dipakai jika `STORAGE_DRIVER=local`)    |
@@ -177,6 +185,7 @@ NODE_ENV=production
 PORT=3000
 HOST=0.0.0.0
 BODY_SIZE_LIMIT=12M
+STORAGE_QUOTA_BYTES=8589934592
 PROTOCOL_HEADER=x-forwarded-proto
 HOST_HEADER=x-forwarded-host
 

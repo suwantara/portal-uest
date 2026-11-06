@@ -1,17 +1,30 @@
 import { error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
-import { document } from '#lib/server/db/schema.ts';
-import { requireProject } from '#lib/server/auth-guard.ts';
+import { document, project } from '#lib/server/db/schema.ts';
+import { requireWorkspace } from '#lib/server/auth-guard.ts';
 import { readUpload } from '#lib/server/uploads.ts';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, url }) => {
-	const { project } = await requireProject(params.id);
+	const { workspace } = await requireWorkspace();
 
-	const found = await db.query.document.findFirst({
-		where: and(eq(document.id, params.docId), eq(document.projectId, project.id))
-	});
+	const [found] = await db
+		.select({
+			name: document.name,
+			mimeType: document.mimeType,
+			storageKey: document.storageKey
+		})
+		.from(document)
+		.innerJoin(project, eq(document.projectId, project.id))
+		.where(
+			and(
+				eq(document.id, params.docId),
+				eq(document.projectId, params.id),
+				eq(project.workspaceId, workspace.id)
+			)
+		)
+		.limit(1);
 
 	if (!found) error(404, 'Dokumen tidak ditemukan');
 
