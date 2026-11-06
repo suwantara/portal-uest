@@ -10,6 +10,27 @@ if (!url) {
 	process.exit(1);
 }
 
+let target;
+
+try {
+	target = new URL(url);
+} catch {
+	console.error('[migrate] DATABASE_URL is not a valid URL');
+	process.exit(1);
+}
+
+const databaseHost = target.hostname;
+
+console.log(`[migrate] Connecting to ${databaseHost}:${target.port || '5432'}${target.pathname}`);
+
+if (['postgres-service', 'postgres-host', 'host', 'database'].includes(databaseHost)) {
+	console.error(
+		`[migrate] DATABASE_URL still uses the placeholder host "${databaseHost}". ` +
+			'Use the Internal Connection URL from your PostgreSQL service in Dokploy, then redeploy.'
+	);
+	process.exit(1);
+}
+
 function intFromEnv(name, fallback) {
 	const raw = process.env[name];
 	if (!raw) return fallback;
