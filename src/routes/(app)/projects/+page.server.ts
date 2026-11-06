@@ -1,20 +1,24 @@
 import { fail } from '@sveltejs/kit';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
-import { boardColumn, document, linkNote, project, task } from '#lib/server/db/schema.ts';
+import {
+	boardColumn,
+	document,
+	linkNote,
+	project,
+	projectMember,
+	task
+} from '#lib/server/db/schema.ts';
 import { requireManager, requireWorkspace } from '#lib/server/auth-guard.ts';
+import { getAccessibleProjects } from '#lib/server/projects.ts';
 import { createProjectSchema, projectIdSchema } from '#lib/server/schemas.ts';
 import { parseFormData } from '#lib/server/validation.ts';
 import { DEFAULT_COLUMNS } from '#lib/server/workspace.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const { workspace, membership } = await requireWorkspace();
-
-	const projects = await db.query.project.findMany({
-		where: and(eq(project.workspaceId, workspace.id), eq(project.archived, false)),
-		orderBy: [asc(project.createdAt)]
-	});
+	const { user, workspace, membership } = await requireWorkspace();
+	const projects = await getAccessibleProjects(workspace.id, user.id, membership.role);
 
 	const ids = projects.map((item) => item.id);
 
@@ -78,25 +82,31 @@ export const actions = {
 
 		const { name, description, color } = parsed.data;
 
-		const [created] = await db
-			.insert(project)
-			.values({
-				workspaceId: workspace.id,
-				name,
-				description: description || null,
-				color,
-				createdBy: user.id
-			})
-			.returning();
+		const created = await db.transaction(async (tx) => {
+			const [row] = await tx
+				.insert(project)
+				.values({
+					workspaceId: workspace.id,
+					name,
+					description: description || null,
+					color,
+					createdBy: user.id
+				})
+				.returning();
 
-		await db.insert(boardColumn).values(
-			DEFAULT_COLUMNS.map((column, index) => ({
-				projectId: created.id,
-				name: column.name,
-				position: index,
-				isDone: column.isDone
-			}))
-		);
+			await tx.insert(boardColumn).values(
+				DEFAULT_COLUMNS.map((column, index) => ({
+					projectId: row.id,
+					name: column.name,
+					position: index,
+					isDone: column.isDone
+				}))
+			);
+
+			await tx.insert(projectMember).values({ projectId: row.id, userId: user.id });
+
+			return row;
+		});
 
 		return { success: true, projectId: created.id };
 	},

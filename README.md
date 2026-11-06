@@ -42,11 +42,11 @@ pnpm dev
 
 ## Peran pengguna
 
-| Role     | Hak akses                                                         |
-| -------- | ----------------------------------------------------------------- |
-| `owner`  | Semua aksi, termasuk mengelola role anggota                       |
-| `admin`  | Membuat/menghapus project, mengelola kolom, mengelola role member |
-| `member` | Membuat/mengedit task, upload dokumen, mengelola link             |
+| Role     | Hak akses                                                               |
+| -------- | ----------------------------------------------------------------------- |
+| `owner`  | Semua project dan aksi, termasuk mengelola role anggota workspace       |
+| `admin`  | Semua project, membuat/menghapus project, mengelola kolom dan anggota   |
+| `member` | Hanya project yang diikuti; task, dokumen, dan link di project tersebut |
 
 User pertama yang mendaftar otomatis menjadi **owner** dan mendapat workspace
 default beserta project **General**. Setelah itu pendaftaran publik ditutup
@@ -60,10 +60,28 @@ deployment baru tanpa membuka registrasi publik.
 Setiap user yang sudah login dapat mengganti password sendiri melalui halaman
 **Akun** (`/settings`) dengan memverifikasi password saat ini.
 
+### Anggota per project
+
+Setiap project memiliki daftar anggotanya sendiri (`project_member`). Ini
+memisahkan akses antar sie/divisi:
+
+- `owner`/`admin` tetap dapat mengakses semua project untuk pengawasan.
+- `member` hanya dapat membuka project tempat ia terdaftar.
+- Assignee task wajib merupakan anggota project tersebut.
+- Owner/admin mengelola anggota lewat tab **Anggota** pada project.
+- Setelah membuat akun baru di halaman **Tim**, tambahkan user tersebut ke
+  project yang relevan lewat tab **Anggota**.
+- Mengeluarkan anggota dari project akan membuat task yang di-assign kepadanya
+  menjadi unassigned.
+
+Nama, deskripsi, dan warna project dapat diubah lewat tombol **Edit project**
+pada header project.
+
 ## Struktur data
 
 - `workspace` / `workspace_member` — satu workspace tim dengan role.
 - `project` — pengelompokan pekerjaan.
+- `project_member` — daftar anggota yang boleh mengakses sebuah project.
 - `board_column` — kolom kanban kustom + flag `is_done`.
 - `task` — task dengan prioritas, assignee, dan tenggat (dipakai kalender).
 - `document` — metadata file; isi file disimpan di `UPLOAD_DIR` atau R2.

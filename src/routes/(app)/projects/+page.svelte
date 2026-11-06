@@ -148,9 +148,13 @@
 				>
 					<Icon name="folder-plus" size={26} />
 				</span>
-				<h2 class="mt-4 text-base font-semibold text-slate-800">Belum ada project</h2>
+				<h2 class="mt-4 text-base font-semibold text-slate-800">
+					{canManage ? 'Belum ada project' : 'Belum tergabung di project'}
+				</h2>
 				<p class="mt-1 max-w-sm text-sm text-slate-400">
-					Project adalah tempat task, kalender, dokumen, dan link tim dikelompokkan.
+					{canManage
+						? 'Project adalah tempat task, kalender, dokumen, dan link tim dikelompokkan.'
+						: 'Hubungi owner/admin workspace agar Anda ditambahkan ke project yang sesuai.'}
 				</p>
 				{#if canManage}
 					<button

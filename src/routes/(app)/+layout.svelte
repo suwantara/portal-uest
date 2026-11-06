@@ -15,7 +15,9 @@
 		mobileOpen = false;
 	});
 
-	const navItems = [
+	const canManage = $derived(data.role === 'owner' || data.role === 'admin');
+
+	const navItems = $derived([
 		{
 			label: 'Dashboard',
 			href: resolve('/(app)/dashboard'),
@@ -23,9 +25,11 @@
 			match: '/dashboard'
 		},
 		{ label: 'Projects', href: resolve('/(app)/projects'), icon: 'folder', match: '/projects' },
-		{ label: 'Tim', href: resolve('/(app)/team'), icon: 'users', match: '/team' },
+		...(canManage
+			? [{ label: 'Tim', href: resolve('/(app)/team'), icon: 'users', match: '/team' }]
+			: []),
 		{ label: 'Akun', href: resolve('/(app)/settings'), icon: 'settings', match: '/settings' }
-	];
+	]);
 
 	const roleLabel: Record<string, string> = {
 		owner: 'Owner',

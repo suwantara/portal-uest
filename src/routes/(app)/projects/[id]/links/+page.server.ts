@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { linkNote, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
+import { updateProjectAction } from '#lib/server/project-actions.ts';
 import { createLinkSchema, linkIdSchema, updateLinkSchema } from '#lib/server/schemas.ts';
 import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -33,6 +34,8 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions = {
+	updateProject: updateProjectAction,
+
 	createLink: async ({ request, params }) => {
 		const { project, user } = await requireProject(params.id);
 		const data = await request.formData();

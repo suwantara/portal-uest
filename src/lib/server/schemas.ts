@@ -145,7 +145,9 @@ export const createProjectSchema = z.object({
 		.default('#6366f1')
 });
 
+export const updateProjectSchema = createProjectSchema;
 export const projectIdSchema = z.object({ projectId: idSchema });
+export const projectMemberSchema = z.object({ userId: idSchema });
 
 export const createColumnSchema = z.object({
 	name: z

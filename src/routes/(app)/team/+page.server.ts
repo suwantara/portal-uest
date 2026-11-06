@@ -9,6 +9,7 @@ import {
 	workspaceMember
 } from '#lib/server/db/schema.ts';
 import { requireManager, requireWorkspace } from '#lib/server/auth-guard.ts';
+import { isRegistrationEnabled } from '#lib/server/registration.ts';
 import { ensureWorkspaceMembership } from '#lib/server/workspace.ts';
 import { auth } from '#lib/server/auth.ts';
 import { createMemberSchema, updateRoleSchema } from '#lib/server/schemas.ts';
@@ -17,6 +18,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
 	const { workspace, membership } = await requireWorkspace();
+	requireManager(membership.role);
 
 	const members = await db
 		.select({
@@ -49,6 +51,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		role: membership.role,
 		currentUserId: membership.userId,
 		registerUrl: `${url.origin}/register`,
+		registrationEnabled: await isRegistrationEnabled(),
 		members: members.map((member) => ({
 			...member,
 			openTasks: workloadMap.get(member.id) ?? 0

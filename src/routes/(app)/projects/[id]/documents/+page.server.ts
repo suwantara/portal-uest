@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { document, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
+import { updateProjectAction } from '#lib/server/project-actions.ts';
 import { documentIdSchema } from '#lib/server/schemas.ts';
 import {
 	deleteUpload,
@@ -39,6 +40,8 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions = {
+	updateProject: updateProjectAction,
+
 	uploadDocuments: async ({ request, params }) => {
 		const { project, user } = await requireProject(params.id);
 		const data = await request.formData();

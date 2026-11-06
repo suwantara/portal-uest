@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from './db/index.ts';
-import { boardColumn, project, task, workspaceMember } from './db/schema.ts';
+import { boardColumn, project, projectMember, task } from './db/schema.ts';
 import { createTaskSchema, moveTaskSchema, taskIdSchema, updateTaskSchema } from './schemas.ts';
 import { parseFormData } from './validation.ts';
 
@@ -18,10 +18,10 @@ async function validateColumn(projectId: string, columnId: string) {
 	});
 }
 
-async function validateAssignee(assigneeId: string, workspaceId: string): Promise<boolean> {
+async function validateAssignee(assigneeId: string, projectId: string): Promise<boolean> {
 	if (!assigneeId) return true;
-	const member = await db.query.workspaceMember.findFirst({
-		where: and(eq(workspaceMember.userId, assigneeId), eq(workspaceMember.workspaceId, workspaceId))
+	const member = await db.query.projectMember.findFirst({
+		where: and(eq(projectMember.userId, assigneeId), eq(projectMember.projectId, projectId))
 	});
 	return Boolean(member);
 }
@@ -52,8 +52,8 @@ export async function createTaskAction(
 	if (!(await validateColumn(projectId, columnId))) {
 		return fail(400, { error: 'Kolom tidak valid.' });
 	}
-	if (!(await validateAssignee(assigneeId, workspaceId))) {
-		return fail(400, { error: 'Assignee bukan anggota tim.' });
+	if (!(await validateAssignee(assigneeId, projectId))) {
+		return fail(400, { error: 'Assignee bukan anggota project.' });
 	}
 
 	await db.insert(task).values({
@@ -87,12 +87,8 @@ export async function updateTaskAction(projectId: string, data: FormData) {
 		return fail(400, { error: 'Kolom tidak valid.' });
 	}
 
-	const projectRow = await db.query.project.findFirst({
-		where: eq(project.id, projectId)
-	});
-
-	if (!projectRow || !(await validateAssignee(assigneeId, projectRow.workspaceId))) {
-		return fail(400, { error: 'Assignee bukan anggota tim.' });
+	if (!(await validateAssignee(assigneeId, projectId))) {
+		return fail(400, { error: 'Assignee bukan anggota project.' });
 	}
 
 	const position =

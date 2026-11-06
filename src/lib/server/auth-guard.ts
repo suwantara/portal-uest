@@ -5,6 +5,7 @@ import type { User } from 'better-auth';
 import { db } from './db';
 import { project } from './db/schema';
 import type { WorkspaceRole } from './db/schema';
+import { isProjectMember } from './projects';
 import {
 	canManage,
 	ensureWorkspaceMembership,
@@ -39,6 +40,10 @@ export async function requireProject(projectId: string) {
 	});
 
 	if (!found) error(404, 'Project tidak ditemukan');
+
+	if (!canManage(context.membership.role) && !(await isProjectMember(found.id, context.user.id))) {
+		error(404, 'Project tidak ditemukan');
+	}
 
 	return { ...context, project: found };
 }

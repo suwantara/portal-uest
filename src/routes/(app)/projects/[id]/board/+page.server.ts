@@ -1,8 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
-import { boardColumn, task, user as userTable, workspaceMember } from '#lib/server/db/schema.ts';
+import { boardColumn, task, user as userTable } from '#lib/server/db/schema.ts';
 import { requireManager, requireProject } from '#lib/server/auth-guard.ts';
+import { updateProjectAction } from '#lib/server/project-actions.ts';
+import { getProjectMembers } from '#lib/server/projects.ts';
 import {
 	columnIdSchema,
 	createColumnSchema,
@@ -44,16 +46,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			.leftJoin(userTable, eq(task.assigneeId, userTable.id))
 			.where(eq(task.projectId, project.id))
 			.orderBy(asc(task.position), asc(task.createdAt)),
-		db
-			.select({
-				id: userTable.id,
-				name: userTable.name,
-				email: userTable.email
-			})
-			.from(workspaceMember)
-			.innerJoin(userTable, eq(workspaceMember.userId, userTable.id))
-			.where(eq(workspaceMember.workspaceId, workspace.id))
-			.orderBy(asc(userTable.name))
+		getProjectMembers(project.id, workspace.id)
 	]);
 
 	return {
@@ -66,6 +59,8 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions = {
+	updateProject: updateProjectAction,
+
 	createTask: async ({ request, params }) => {
 		const { project, workspace, user } = await requireProject(params.id);
 		return createTaskAction(project.id, workspace.id, user.id, await request.formData());

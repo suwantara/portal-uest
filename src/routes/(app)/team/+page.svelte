@@ -70,31 +70,40 @@
 		<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:col-span-2">
 			<div class="flex items-start gap-3">
 				<span
-					class="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"
+					class={`flex size-10 items-center justify-center rounded-xl ${
+						data.registrationEnabled ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
+					}`}
 				>
-					<Icon name="mail" size={18} />
+					<Icon name={data.registrationEnabled ? 'mail' : 'shield'} size={18} />
 				</span>
 				<div class="min-w-0">
-					<h2 class="text-sm font-semibold text-slate-900">Undang anggota baru</h2>
+					<h2 class="text-sm font-semibold text-slate-900">
+						{data.registrationEnabled ? 'Undang anggota baru' : 'Pendaftaran publik ditutup'}
+					</h2>
 					<p class="mt-1 text-xs text-slate-400">
-						Bagikan tautan pendaftaran. Anggota baru otomatis bergabung sebagai member.
+						{data.registrationEnabled
+							? 'Bagikan tautan pendaftaran. Anggota baru otomatis bergabung sebagai member.'
+							: 'Gunakan tombol Tambah anggota untuk membuat akun. Setelah itu, tambahkan mereka ke project melalui tab Anggota pada project.'}
 					</p>
-					<div class="mt-3 flex flex-col gap-2 sm:flex-row">
-						<input
-							type="text"
-							readonly
-							value={data.registerUrl}
-							class="min-w-0 flex-1 rounded-xl border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-500"
-						/>
-						<button
-							type="button"
-							onclick={copyInvite}
-							class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-						>
-							<Icon name="link" size={14} />
-							Salin tautan
-						</button>
-					</div>
+
+					{#if data.registrationEnabled}
+						<div class="mt-3 flex flex-col gap-2 sm:flex-row">
+							<input
+								type="text"
+								readonly
+								value={data.registerUrl}
+								class="min-w-0 flex-1 rounded-xl border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-500"
+							/>
+							<button
+								type="button"
+								onclick={copyInvite}
+								class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+							>
+								<Icon name="link" size={14} />
+								Salin tautan
+							</button>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>

@@ -9,6 +9,7 @@ import {
 	workspaceMember
 } from '#lib/server/db/schema.ts';
 import { requireWorkspace } from '#lib/server/auth-guard.ts';
+import { getAccessibleProjects } from '#lib/server/projects.ts';
 import { todayISO } from '#lib/utils.ts';
 import type { PageServerLoad } from './$types';
 
@@ -19,16 +20,16 @@ function addDays(iso: string, days: number): string {
 }
 
 export const load: PageServerLoad = async () => {
-	const { user, workspace } = await requireWorkspace();
+	const { user, workspace, membership } = await requireWorkspace();
 	const today = todayISO();
 	const inSevenDays = addDays(today, 7);
 
-	const projects = await db.query.project.findMany({
-		where: and(eq(project.workspaceId, workspace.id), eq(project.archived, false)),
-		orderBy: [asc(project.createdAt)]
-	});
-
+	const projects = await getAccessibleProjects(workspace.id, user.id, membership.role);
 	const projectIds = projects.map((item) => item.id);
+
+	const taskScope = projectIds.length ? inArray(task.projectId, projectIds) : sql`false`;
+	const documentScope = projectIds.length ? inArray(document.projectId, projectIds) : sql`false`;
+	const linkScope = projectIds.length ? inArray(linkNote.projectId, projectIds) : sql`false`;
 
 	const [
 		taskStats,
@@ -46,9 +47,8 @@ export const load: PageServerLoad = async () => {
 				done: sql<number>`count(*) filter (where ${boardColumn.isDone})::int`
 			})
 			.from(task)
-			.innerJoin(project, eq(task.projectId, project.id))
 			.innerJoin(boardColumn, eq(task.columnId, boardColumn.id))
-			.where(eq(project.workspaceId, workspace.id)),
+			.where(taskScope),
 		projectIds.length
 			? db
 					.select({
@@ -64,15 +64,8 @@ export const load: PageServerLoad = async () => {
 		db
 			.select({ value: sql<number>`count(*)::int` })
 			.from(task)
-			.innerJoin(project, eq(task.projectId, project.id))
 			.innerJoin(boardColumn, eq(task.columnId, boardColumn.id))
-			.where(
-				and(
-					eq(project.workspaceId, workspace.id),
-					eq(boardColumn.isDone, false),
-					lt(task.dueDate, today)
-				)
-			),
+			.where(and(taskScope, eq(boardColumn.isDone, false), lt(task.dueDate, today))),
 		db
 			.select({ value: sql<number>`count(*)::int` })
 			.from(workspaceMember)
@@ -80,13 +73,11 @@ export const load: PageServerLoad = async () => {
 		db
 			.select({ value: sql<number>`count(*)::int` })
 			.from(document)
-			.innerJoin(project, eq(document.projectId, project.id))
-			.where(eq(project.workspaceId, workspace.id)),
+			.where(documentScope),
 		db
 			.select({ value: sql<number>`count(*)::int` })
 			.from(linkNote)
-			.innerJoin(project, eq(linkNote.projectId, project.id))
-			.where(eq(project.workspaceId, workspace.id)),
+			.where(linkScope),
 		db
 			.select({
 				id: task.id,
@@ -101,13 +92,7 @@ export const load: PageServerLoad = async () => {
 			.from(task)
 			.innerJoin(boardColumn, eq(task.columnId, boardColumn.id))
 			.innerJoin(project, eq(task.projectId, project.id))
-			.where(
-				and(
-					eq(project.workspaceId, workspace.id),
-					eq(task.assigneeId, user.id),
-					eq(boardColumn.isDone, false)
-				)
-			)
+			.where(and(taskScope, eq(task.assigneeId, user.id), eq(boardColumn.isDone, false)))
 			.orderBy(sql`${task.dueDate} asc nulls last`, asc(task.createdAt))
 			.limit(6),
 		db
@@ -126,7 +111,7 @@ export const load: PageServerLoad = async () => {
 			.innerJoin(project, eq(task.projectId, project.id))
 			.where(
 				and(
-					eq(project.workspaceId, workspace.id),
+					taskScope,
 					eq(boardColumn.isDone, false),
 					gte(task.dueDate, today),
 					lte(task.dueDate, inSevenDays)

@@ -1,6 +1,13 @@
 import { eq, sql } from 'drizzle-orm';
 import { db } from './db';
-import { boardColumn, project, workspace, workspaceMember, type WorkspaceRole } from './db/schema';
+import {
+	boardColumn,
+	project,
+	projectMember,
+	workspace,
+	workspaceMember,
+	type WorkspaceRole
+} from './db/schema';
 
 export const WORKSPACE_SLUG = 'portal-uest';
 export const WORKSPACE_NAME = 'Portal UEST';
@@ -94,6 +101,8 @@ export async function ensureWorkspaceMembership(userId: string): Promise<Workspa
 				isDone: column.isDone
 			}))
 		);
+
+		await db.insert(projectMember).values({ projectId: created.id, userId });
 	}
 
 	const context = await getWorkspaceContext(userId);

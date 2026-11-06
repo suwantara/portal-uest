@@ -1,7 +1,9 @@
 import { and, asc, eq, gte, lt } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
-import { boardColumn, task, user as userTable, workspaceMember } from '#lib/server/db/schema.ts';
+import { boardColumn, task, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
+import { updateProjectAction } from '#lib/server/project-actions.ts';
+import { getProjectMembers } from '#lib/server/projects.ts';
 import { createTaskAction, deleteTaskAction, updateTaskAction } from '#lib/server/task-actions.ts';
 import { todayISO } from '#lib/utils.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -52,12 +54,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			.leftJoin(userTable, eq(task.assigneeId, userTable.id))
 			.where(and(eq(task.projectId, project.id), gte(task.dueDate, from), lt(task.dueDate, to)))
 			.orderBy(asc(task.dueDate), asc(task.position)),
-		db
-			.select({ id: userTable.id, name: userTable.name })
-			.from(workspaceMember)
-			.innerJoin(userTable, eq(workspaceMember.userId, userTable.id))
-			.where(eq(workspaceMember.workspaceId, workspace.id))
-			.orderBy(asc(userTable.name))
+		getProjectMembers(project.id, workspace.id)
 	]);
 
 	return {
@@ -72,6 +69,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 };
 
 export const actions = {
+	updateProject: updateProjectAction,
+
 	createTask: async ({ request, params }) => {
 		const { project, workspace, user } = await requireProject(params.id);
 		return createTaskAction(project.id, workspace.id, user.id, await request.formData());

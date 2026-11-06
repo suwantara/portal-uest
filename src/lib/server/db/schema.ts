@@ -74,6 +74,26 @@ export const project = pgTable(
 	]
 );
 
+export const projectMember = pgTable(
+	'project_member',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		projectId: text('project_id')
+			.notNull()
+			.references(() => project.id, { onDelete: 'cascade' }),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(table) => [
+		uniqueIndex('project_member_project_user_unique').on(table.projectId, table.userId),
+		index('project_member_user_idx').on(table.userId)
+	]
+);
+
 export const boardColumn = pgTable(
 	'board_column',
 	{
@@ -180,9 +200,21 @@ export const projectRelations = relations(project, ({ one, many }) => ({
 		references: [workspace.id]
 	}),
 	columns: many(boardColumn),
+	members: many(projectMember),
 	tasks: many(task),
 	documents: many(document),
 	links: many(linkNote)
+}));
+
+export const projectMemberRelations = relations(projectMember, ({ one }) => ({
+	project: one(project, {
+		fields: [projectMember.projectId],
+		references: [project.id]
+	}),
+	user: one(user, {
+		fields: [projectMember.userId],
+		references: [user.id]
+	})
 }));
 
 export const boardColumnRelations = relations(boardColumn, ({ one, many }) => ({
