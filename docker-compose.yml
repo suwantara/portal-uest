@@ -6,9 +6,12 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    # Untuk lokal. Di Dokploy, hapus ports dan arahkan domain ke port 3000.
-    ports:
-      - '3000:3000'
+    # Dokploy/Traefik mengakses container lewat network internal.
+    # Untuk akses langsung dari host saat development, tambahkan sementara:
+    # ports:
+    #   - '3000:3000'
+    expose:
+      - '3000'
     volumes:
       # Only needed when STORAGE_DRIVER=local. With R2 the volume can be removed.
       - uploads:/app/uploads
