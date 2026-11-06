@@ -28,8 +28,7 @@
 		{ label: 'Dokumen', href: resolve('/(app)/documents'), icon: 'file', match: '/documents' },
 		...(canManage
 			? [{ label: 'Tim', href: resolve('/(app)/team'), icon: 'users', match: '/team' }]
-			: []),
-		{ label: 'Akun', href: resolve('/(app)/settings'), icon: 'settings', match: '/settings' }
+			: [])
 	]);
 
 	const roleLabel: Record<string, string> = {
@@ -161,8 +160,10 @@
 					{/each}
 				</div>
 			</div>
+		</div>
 
-			<div class="mx-3 mt-6 rounded-xl bg-white/5 p-3">
+		<div class="border-t border-white/10 p-3">
+			<div class="rounded-xl bg-white/5 p-3">
 				<div class="flex items-center justify-between text-[11px]">
 					<span class="font-medium text-slate-300">Penyimpanan</span>
 					<span class="text-slate-500">{Math.round(data.storage.percent)}%</span>
@@ -177,10 +178,21 @@
 					{formatBytes(data.storage.remaining)} tersisa dari {formatBytes(data.storage.limit)}
 				</p>
 			</div>
-		</div>
 
-		<div class="border-t border-white/10 p-3">
-			<div class="flex items-center gap-3 rounded-xl px-2 py-2">
+			<a
+				href={resolve('/(app)/settings')}
+				class={cn(
+					'mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+					page.url.pathname.startsWith('/settings')
+						? 'bg-white/10 text-white'
+						: 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+				)}
+			>
+				<Icon name="settings" size={18} />
+				Akun
+			</a>
+
+			<div class="mt-1 flex items-center gap-3 border-t border-white/10 px-2 pt-3 pb-1">
 				<Avatar name={data.user.name} size="sm" />
 				<div class="min-w-0 flex-1">
 					<p class="truncate text-sm font-medium text-white">{data.user.name}</p>
