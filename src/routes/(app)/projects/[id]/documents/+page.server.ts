@@ -1,10 +1,10 @@
 import { fail } from '@sveltejs/kit';
-import { and, desc, eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { document, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
+import { deleteDocumentAction, updateDocumentAction } from '#lib/server/document-actions.ts';
 import { updateProjectAction } from '#lib/server/project-actions.ts';
-import { documentIdSchema } from '#lib/server/schemas.ts';
 import {
 	deleteUpload,
 	isFile,
@@ -12,7 +12,6 @@ import {
 	MAX_FILE_SIZE,
 	saveUpload
 } from '#lib/server/uploads.ts';
-import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -25,6 +24,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			mimeType: document.mimeType,
 			size: document.size,
 			createdAt: document.createdAt,
+			uploadedBy: document.uploadedBy,
 			uploaderName: userTable.name
 		})
 		.from(document)
@@ -35,6 +35,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	return {
 		projectId: project.id,
 		role: membership.role,
+		currentUserId: membership.userId,
 		documents
 	};
 };
@@ -86,21 +87,13 @@ export const actions = {
 		return { success: true, uploaded: files.length };
 	},
 
+	updateDocument: async ({ request, params }) => {
+		const { project, user, membership } = await requireProject(params.id);
+		return updateDocumentAction(project.id, user.id, membership.role, await request.formData());
+	},
+
 	deleteDocument: async ({ request, params }) => {
-		const { project } = await requireProject(params.id);
-		const data = await request.formData();
-		const parsed = parseFormData(documentIdSchema, data);
-		if (!parsed.success) return fail(400, { error: parsed.error });
-
-		const found = await db.query.document.findFirst({
-			where: and(eq(document.id, parsed.data.documentId), eq(document.projectId, project.id))
-		});
-
-		if (!found) return fail(404, { error: 'Dokumen tidak ditemukan.' });
-
-		await db.delete(document).where(eq(document.id, found.id));
-		await deleteUpload(found.storageKey);
-
-		return { success: true };
+		const { project, user, membership } = await requireProject(params.id);
+		return deleteDocumentAction(project.id, user.id, membership.role, await request.formData());
 	}
 } satisfies Actions;

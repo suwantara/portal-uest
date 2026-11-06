@@ -77,6 +77,17 @@ memisahkan akses antar sie/divisi:
 Nama, deskripsi, dan warna project dapat diubah lewat tombol **Edit project**
 pada header project.
 
+### Dokumen
+
+- Menu **Dokumen** di sidebar menampilkan semua dokumen dari project yang dapat
+  diakses user.
+- Semua anggota project dapat melihat daftar, mengunduh, dan preview PDF.
+- Preview PDF memakai `Content-Disposition: inline`; file non-PDF tetap diunduh
+  sebagai attachment.
+- Hanya pengunggah dokumen atau owner/admin yang dapat mengubah nama dan
+  menghapus dokumen.
+- Upload tetap dilakukan dari tab **Dokumen** pada masing-masing project.
+
 ## Struktur data
 
 - `workspace` / `workspace_member` — satu workspace tim dengan role.

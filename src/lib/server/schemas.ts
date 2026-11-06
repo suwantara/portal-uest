@@ -180,3 +180,12 @@ export const updateLinkSchema = z.object({ linkId: idSchema, ...linkFields });
 export const linkIdSchema = z.object({ linkId: idSchema });
 
 export const documentIdSchema = z.object({ documentId: idSchema });
+
+export const updateDocumentSchema = z.object({
+	documentId: idSchema,
+	name: z
+		.string()
+		.trim()
+		.min(1, 'Nama dokumen wajib diisi.')
+		.max(180, 'Nama dokumen maksimal 180 karakter.')
+});

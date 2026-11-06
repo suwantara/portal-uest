@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import DocumentEditModal from '#lib/components/DocumentEditModal.svelte';
+	import DocumentPreviewModal from '#lib/components/DocumentPreviewModal.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
@@ -14,7 +16,41 @@
 	let fileInput = $state<HTMLInputElement>();
 	let submitting = $state(false);
 
+	let previewOpen = $state(false);
+	let previewDoc = $state<(typeof data.documents)[number] | null>(null);
+	let editOpen = $state(false);
+	let editDoc = $state<(typeof data.documents)[number] | null>(null);
+
 	const totalSize = $derived(data.documents.reduce((total, item) => total + item.size, 0));
+	const canManage = $derived(data.role === 'owner' || data.role === 'admin');
+
+	function canModify(doc: (typeof data.documents)[number]): boolean {
+		return doc.uploadedBy === data.currentUserId || canManage;
+	}
+
+	function downloadHref(doc: (typeof data.documents)[number]): string {
+		return resolve('/(app)/projects/[id]/documents/[docId]/download', {
+			id: data.projectId,
+			docId: doc.id
+		});
+	}
+
+	function previewHref(doc: (typeof data.documents)[number]): string {
+		return resolve('/(app)/projects/[id]/documents/[docId]/download?preview=1', {
+			id: data.projectId,
+			docId: doc.id
+		});
+	}
+
+	function openPreview(doc: (typeof data.documents)[number]) {
+		previewDoc = doc;
+		previewOpen = true;
+	}
+
+	function openEdit(doc: (typeof data.documents)[number]) {
+		editDoc = doc;
+		editOpen = true;
+	}
 
 	const typeTone: Record<string, string> = {
 		image: 'bg-emerald-50 text-emerald-600',
@@ -80,7 +116,7 @@
 	{#if data.documents.length}
 		<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 			<div
-				class="hidden grid-cols-[1fr_110px_160px_140px_100px] gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-3 text-[11px] font-semibold tracking-wider text-slate-400 uppercase sm:grid"
+				class="hidden grid-cols-[1fr_110px_160px_140px_140px] gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-3 text-[11px] font-semibold tracking-wider text-slate-400 uppercase sm:grid"
 			>
 				<span>Nama file</span>
 				<span>Ukuran</span>
@@ -92,7 +128,7 @@
 			<div class="divide-y divide-slate-100">
 				{#each data.documents as doc (doc.id)}
 					<div
-						class="grid gap-3 px-4 py-4 sm:grid-cols-[1fr_110px_160px_140px_100px] sm:items-center sm:gap-4 sm:px-5"
+						class="grid gap-3 px-4 py-4 sm:grid-cols-[1fr_110px_160px_140px_140px] sm:items-center sm:gap-4 sm:px-5"
 					>
 						<div class="flex min-w-0 items-center gap-3">
 							<span
@@ -119,6 +155,18 @@
 						</div>
 
 						<div class="flex items-center gap-1 sm:justify-end">
+							{#if doc.mimeType === 'application/pdf'}
+								<button
+									type="button"
+									onclick={() => openPreview(doc)}
+									class="rounded-lg p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
+									title="Preview PDF"
+									aria-label={`Preview ${doc.name}`}
+								>
+									<Icon name="eye" size={16} />
+								</button>
+							{/if}
+
 							<a
 								href={resolve('/(app)/projects/[id]/documents/[docId]/download', {
 									id: data.projectId,
@@ -130,30 +178,49 @@
 							>
 								<Icon name="download" size={16} />
 							</a>
-							<form
-								method="POST"
-								action="?/deleteDocument"
-								onsubmit={(event) => {
-									if (!confirm(`Hapus dokumen "${doc.name}"?`)) event.preventDefault();
-								}}
-								use:enhance={() => {
-									return async ({ result, update }) => {
-										await update();
-										if (result.type === 'success') toasts.success('Dokumen dihapus.');
-										else if (result.type === 'failure') toasts.error('Gagal menghapus dokumen.');
-									};
-								}}
-							>
-								<input type="hidden" name="documentId" value={doc.id} />
+
+							{#if canModify(doc)}
 								<button
-									type="submit"
-									class="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-									title="Hapus"
-									aria-label={`Hapus ${doc.name}`}
+									type="button"
+									onclick={() => openEdit(doc)}
+									class="rounded-lg p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
+									title="Edit nama dokumen"
+									aria-label={`Edit ${doc.name}`}
 								>
-									<Icon name="trash" size={16} />
+									<Icon name="edit" size={16} />
 								</button>
-							</form>
+
+								<form
+									method="POST"
+									action="?/deleteDocument"
+									onsubmit={(event) => {
+										if (!confirm(`Hapus dokumen "${doc.name}"?`)) event.preventDefault();
+									}}
+									use:enhance={() => {
+										return async ({ result, update }) => {
+											await update();
+											if (result.type === 'success') toasts.success('Dokumen dihapus.');
+											else if (result.type === 'failure') {
+												toasts.error(
+													typeof result.data?.error === 'string'
+														? result.data.error
+														: 'Gagal menghapus dokumen.'
+												);
+											}
+										};
+									}}
+								>
+									<input type="hidden" name="documentId" value={doc.id} />
+									<button
+										type="submit"
+										class="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+										title="Hapus"
+										aria-label={`Hapus ${doc.name}`}
+									>
+										<Icon name="trash" size={16} />
+									</button>
+								</form>
+							{/if}
 						</div>
 					</div>
 				{/each}
@@ -283,3 +350,12 @@
 		</div>
 	</form>
 </Modal>
+
+<DocumentPreviewModal
+	bind:open={previewOpen}
+	name={previewDoc?.name ?? 'Preview dokumen'}
+	src={previewDoc ? previewHref(previewDoc) : ''}
+	downloadHref={previewDoc ? downloadHref(previewDoc) : ''}
+/>
+
+<DocumentEditModal bind:open={editOpen} document={editDoc} action="?/updateDocument" />

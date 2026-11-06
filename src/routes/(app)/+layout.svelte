@@ -25,6 +25,7 @@
 			match: '/dashboard'
 		},
 		{ label: 'Projects', href: resolve('/(app)/projects'), icon: 'folder', match: '/projects' },
+		{ label: 'Dokumen', href: resolve('/(app)/documents'), icon: 'file', match: '/documents' },
 		...(canManage
 			? [{ label: 'Tim', href: resolve('/(app)/team'), icon: 'users', match: '/team' }]
 			: []),
