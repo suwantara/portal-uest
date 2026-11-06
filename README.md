@@ -102,27 +102,31 @@ docker run --rm -p 3000:3000 --env-file .env portal-uest
 Saat container start, `docker-entrypoint.sh` menjalankan migration ke database
 (`scripts/migrate.mjs` + folder `drizzle/`) sebelum aplikasi dijalankan. Migration
 bersifat idempotent; set `RUN_MIGRATIONS=false` jika ingin mengelolanya manual.
-Untuk lebih dari satu replica, jalankan migration sebagai job terpisah.
+Jika database belum siap, migration dicoba ulang otomatis (default 10 retry,
+delay awal 3 detik). Untuk lebih dari satu replica, jalankan migration sebagai
+job terpisah.
 
 ### Environment variables di Dokploy
 
-| Variable               | Contoh / keterangan                                      |
-| ---------------------- | -------------------------------------------------------- |
-| `DATABASE_URL`         | Internal Connection URL dari service PostgreSQL          |
-| `ORIGIN`               | `https://portal.example.com` (harus sama dengan domain)  |
-| `BETTER_AUTH_SECRET`   | 32+ karakter acak, jangan diubah setelah ada user        |
-| `STORAGE_DRIVER`       | `r2` untuk produksi, `local` untuk fallback              |
-| `R2_ACCOUNT_ID`        | Account ID Cloudflare                                    |
-| `R2_ACCESS_KEY_ID`     | Access key dari R2 API token                             |
-| `R2_SECRET_ACCESS_KEY` | Secret key dari R2 API token                             |
-| `R2_BUCKET`            | Nama bucket R2                                           |
-| `R2_ENDPOINT`          | Opsional; otomatis dari `R2_ACCOUNT_ID` bila kosong      |
-| `BODY_SIZE_LIMIT`      | `12M` agar upload 10 MB berjalan di adapter Node         |
-| `PROTOCOL_HEADER`      | `x-forwarded-proto` (di belakang Traefik/Dokploy)        |
-| `HOST_HEADER`          | `x-forwarded-host` (di belakang Traefik/Dokploy)         |
-| `UPLOAD_DIR`           | `uploads` (hanya dipakai jika `STORAGE_DRIVER=local`)    |
-| `RUN_MIGRATIONS`       | Default `true`; set `false` untuk menonaktifkan otomatis |
-| `R2_FORCE_PATH_STYLE`  | Opsional; `true` hanya untuk MinIO/path-style endpoint   |
+| Variable                   | Contoh / keterangan                                      |
+| -------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`             | Internal Connection URL dari service PostgreSQL          |
+| `ORIGIN`                   | `https://portal.example.com` (harus sama dengan domain)  |
+| `BETTER_AUTH_SECRET`       | 32+ karakter acak, jangan diubah setelah ada user        |
+| `STORAGE_DRIVER`           | `r2` untuk produksi, `local` untuk fallback              |
+| `R2_ACCOUNT_ID`            | Account ID Cloudflare                                    |
+| `R2_ACCESS_KEY_ID`         | Access key dari R2 API token                             |
+| `R2_SECRET_ACCESS_KEY`     | Secret key dari R2 API token                             |
+| `R2_BUCKET`                | Nama bucket R2                                           |
+| `R2_ENDPOINT`              | Opsional; otomatis dari `R2_ACCOUNT_ID` bila kosong      |
+| `BODY_SIZE_LIMIT`          | `12M` agar upload 10 MB berjalan di adapter Node         |
+| `PROTOCOL_HEADER`          | `x-forwarded-proto` (di belakang Traefik/Dokploy)        |
+| `HOST_HEADER`              | `x-forwarded-host` (di belakang Traefik/Dokploy)         |
+| `UPLOAD_DIR`               | `uploads` (hanya dipakai jika `STORAGE_DRIVER=local`)    |
+| `RUN_MIGRATIONS`           | Default `true`; set `false` untuk menonaktifkan otomatis |
+| `MIGRATION_RETRIES`        | Jumlah retry migration saat DB belum siap (default `10`) |
+| `MIGRATION_RETRY_DELAY_MS` | Delay awal antar retry dalam ms (default `3000`)         |
+| `R2_FORCE_PATH_STYLE`      | Opsional; `true` hanya untuk MinIO/path-style endpoint   |
 
 Contoh:
 
@@ -136,7 +140,7 @@ HOST_HEADER=x-forwarded-host
 
 ORIGIN=https://portal.example.com
 BETTER_AUTH_SECRET=<openssl rand -hex 32>
-DATABASE_URL=postgres://portal_user:password@postgres-service:5432/portal_uest
+DATABASE_URL=postgres://portal_user:password@postgres-xxxxx:5432/portal_uest
 
 STORAGE_DRIVER=r2
 R2_ACCOUNT_ID=<cloudflare-account-id>
@@ -147,12 +151,18 @@ R2_BUCKET=portal-uest
 
 ### PostgreSQL di project Dokploy lain
 
+`postgres-xxxxx` di atas hanya contoh. Ambil hostname sebenarnya dari halaman
+service PostgreSQL di Dokploy → **Connection** → **Internal Connection URL**.
+Jangan menebak nama host seperti `postgres-service`; hostname internal Dokploy
+biasanya berbentuk nama service + hash.
+
 Dokploy mengisolasi service antar project/environment. Jika PostgreSQL berada di
 **project atau environment yang berbeda**, hostname internal database biasanya
-tidak bisa di-resolve dari container aplikasi. Pilihan yang tersedia:
+tidak bisa di-resolve dari container aplikasi (gejalanya
+`getaddrinfo ENOTFOUND <host>`). Pilihan yang tersedia:
 
 1. **Rekomendasi:** buat Application ini di project/environment yang sama dengan
-   PostgreSQL, lalu gunakan **Internal Connection URL** dari halaman database.
+   PostgreSQL, lalu copy **Internal Connection URL** dari halaman database.
    Koneksi tetap privat dan tidak keluar dari server.
 2. Jika harus tetap terpisah: aktifkan **External Port** pada PostgreSQL dan
    gunakan **External Connection URL**. Ini membuka database ke internet, jadi
@@ -160,8 +170,18 @@ tidak bisa di-resolve dari container aplikasi. Pilihan yang tersedia:
 3. Opsi lanjutan: hubungkan kedua service ke Docker network yang sama di luar
    alur standar Dokploy. Cara ini tidak otomatis dipertahankan saat redeploy.
 
+Cara cepat memastikan host bisa di-resolve dari container aplikasi:
+
+```sh
+getent hosts <host-dari-database-url>
+```
+
+Jika kosong atau `not found`, berarti aplikasi dan database tidak berada di
+network yang sama.
+
 Gunakan database khusus untuk aplikasi ini (misalnya `portal_uest`), jangan
-berbagi database dengan aplikasi lain.
+berbagi database dengan aplikasi lain. Jika password mengandung karakter khusus
+seperti `@`, `:`, `/`, atau `#`, encode dulu sebagai URL (misalnya `@` → `%40`).
 
 ### Cloudflare R2
 
