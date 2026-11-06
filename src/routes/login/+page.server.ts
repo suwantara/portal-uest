@@ -1,15 +1,18 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '#lib/server/auth.ts';
+import { isRegistrationEnabled } from '#lib/server/registration.ts';
 import { safeRedirect } from '#lib/utils.ts';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user) {
 		redirect(303, safeRedirect(url.searchParams.get('redirectTo')));
 	}
 
 	return {
-		redirectTo: safeRedirect(url.searchParams.get('redirectTo'))
+		redirectTo: safeRedirect(url.searchParams.get('redirectTo')),
+		registrationEnabled: await isRegistrationEnabled(),
+		registrationDisabled: url.searchParams.get('registration') === 'disabled'
 	};
 };
 

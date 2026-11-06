@@ -14,6 +14,17 @@
 </svelte:head>
 
 <AuthShell mode="login">
+	{#if data.registrationDisabled}
+		<div
+			class="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+		>
+			<Icon name="alert" size={17} className="mt-0.5 shrink-0" />
+			<p>
+				Pendaftaran publik ditutup. Minta owner/admin workspace membuatkan akun melalui halaman Tim.
+			</p>
+		</div>
+	{/if}
+
 	<form method="POST" use:enhance class="space-y-5">
 		<input type="hidden" name="redirectTo" value={data.redirectTo} />
 
@@ -51,13 +62,19 @@
 		</button>
 	</form>
 
-	<p class="mt-6 text-center text-sm text-slate-500">
-		Belum punya akun?
-		<a
-			href={resolve('/register')}
-			class="font-semibold text-indigo-600 transition hover:text-indigo-700"
-		>
-			Daftar sekarang
-		</a>
-	</p>
+	{#if data.registrationEnabled}
+		<p class="mt-6 text-center text-sm text-slate-500">
+			Belum punya akun?
+			<a
+				href={resolve('/register')}
+				class="font-semibold text-indigo-600 transition hover:text-indigo-700"
+			>
+				Daftar sekarang
+			</a>
+		</p>
+	{:else}
+		<p class="mt-6 text-center text-sm text-slate-500">
+			Belum punya akun? Hubungi owner/admin workspace untuk dibuatkan akun.
+		</p>
+	{/if}
 </AuthShell>

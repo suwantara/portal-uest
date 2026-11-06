@@ -23,6 +23,7 @@ Isi `.env` (lihat `.env.example`):
 DATABASE_URL="postgres://user:password@127.0.0.1:5432/portal_uest"
 ORIGIN="http://localhost:5173"
 BETTER_AUTH_SECRET="<32+ karakter acak>"
+ALLOW_REGISTRATION="false"
 STORAGE_DRIVER="local"
 UPLOAD_DIR="uploads"
 ```
@@ -48,16 +49,16 @@ pnpm dev
 | `member` | Membuat/mengedit task, upload dokumen, mengelola link             |
 
 User pertama yang mendaftar otomatis menjadi **owner** dan mendapat workspace
-default beserta project **General**. User berikutnya otomatis bergabung sebagai
-**member**. Owner/admin juga dapat membuat akun anggota langsung dari halaman
-**Tim** (nama, email, password awal, dan role).
+default beserta project **General**. Setelah itu pendaftaran publik ditutup
+secara default (`ALLOW_REGISTRATION=false`), dan anggota berikutnya dibuat oleh
+owner/admin melalui halaman **Tim** (nama, email, password awal, dan role).
+
+Pendaftaran user pertama tetap diizinkan meskipun `ALLOW_REGISTRATION=false`,
+selama database belum memiliki user sama sekali. Ini memungkinkan bootstrap
+deployment baru tanpa membuka registrasi publik.
 
 Setiap user yang sudah login dapat mengganti password sendiri melalui halaman
 **Akun** (`/settings`) dengan memverifikasi password saat ini.
-
-> Registrasi bersifat terbuka. Untuk produksi, batasi akses ke halaman
-> `/register` (misalnya lewat reverse proxy atau allowlist email) bila workspace
-> tidak boleh diakses publik.
 
 ## Struktur data
 
@@ -113,6 +114,7 @@ job terpisah.
 | `DATABASE_URL`             | Internal Connection URL dari service PostgreSQL          |
 | `ORIGIN`                   | `https://portal.example.com` (harus sama dengan domain)  |
 | `BETTER_AUTH_SECRET`       | 32+ karakter acak, jangan diubah setelah ada user        |
+| `ALLOW_REGISTRATION`       | `false` (disarankan); user pertama tetap bisa mendaftar  |
 | `STORAGE_DRIVER`           | `r2` untuk produksi, `local` untuk fallback              |
 | `R2_ACCOUNT_ID`            | Account ID Cloudflare                                    |
 | `R2_ACCESS_KEY_ID`         | Access key dari R2 API token                             |
@@ -140,6 +142,7 @@ HOST_HEADER=x-forwarded-host
 
 ORIGIN=https://portal.example.com
 BETTER_AUTH_SECRET=<openssl rand -hex 32>
+ALLOW_REGISTRATION=false
 DATABASE_URL=postgres://portal_user:password@postgres-xxxxx:5432/portal_uest
 
 STORAGE_DRIVER=r2

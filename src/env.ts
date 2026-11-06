@@ -9,6 +9,11 @@ export const variables = defineEnvVars({
 		description:
 			'Secret used to sign tokens. For production use 32 characters generated with high entropy. See [Better Auth installation](https://www.better-auth.com/docs/installation).'
 	},
+	ALLOW_REGISTRATION: {
+		description:
+			'Allow public self-registration after the first owner exists. The very first user can always register.',
+		schema: (value) => value === 'true'
+	},
 	STORAGE_DRIVER: {
 		description: 'Document storage backend: `local` (default) or `r2` for Cloudflare R2.',
 		schema: (value) => (value === 'r2' ? 'r2' : 'local')

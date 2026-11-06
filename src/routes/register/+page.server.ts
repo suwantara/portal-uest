@@ -1,13 +1,23 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '#lib/server/auth.ts';
+import { isRegistrationEnabled } from '#lib/server/registration.ts';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ locals }) => {
+export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.user) redirect(303, '/dashboard');
+	if (!(await isRegistrationEnabled())) redirect(303, '/login?registration=disabled');
 };
 
 export const actions = {
 	default: async ({ request }) => {
+		if (!(await isRegistrationEnabled())) {
+			return fail(403, {
+				name: '',
+				email: '',
+				error: 'Pendaftaran ditutup. Minta owner/admin workspace untuk membuatkan akun.'
+			});
+		}
+
 		const data = await request.formData();
 		const name = String(data.get('name') ?? '').trim();
 		const email = String(data.get('email') ?? '')
