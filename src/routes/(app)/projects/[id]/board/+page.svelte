@@ -352,6 +352,25 @@
 								</p>
 							{/if}
 
+							{#if item.formats.length}
+								<div class="mt-2 flex flex-wrap gap-1">
+									{#each item.formats.slice(0, 4) as format (format)}
+										<span
+											class="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700"
+										>
+											{format}
+										</span>
+									{/each}
+									{#if item.formats.length > 4}
+										<span
+											class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
+										>
+											+{item.formats.length - 4}
+										</span>
+									{/if}
+								</div>
+							{/if}
+
 							<div class="mt-3 flex items-center justify-between gap-2">
 								<div class="flex items-center gap-2">
 									<PriorityDot priority={item.priority} />

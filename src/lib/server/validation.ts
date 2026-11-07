@@ -57,6 +57,24 @@ export function normalizeUrl(value: string): string | null {
 	}
 }
 
+export function parseFormats(value: string): string[] {
+	const seen = new Set<string>();
+
+	return value
+		.split(',')
+		.map((format) => format.trim().slice(0, 30))
+		.filter((format) => {
+			if (!format) return false;
+
+			const key = format.toLowerCase();
+			if (seen.has(key)) return false;
+
+			seen.add(key);
+			return true;
+		})
+		.slice(0, 10);
+}
+
 export function parseTags(value: string): string[] {
 	return [
 		...new Set(

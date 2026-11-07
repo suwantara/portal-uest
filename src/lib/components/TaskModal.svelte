@@ -12,6 +12,7 @@
 		title: string;
 		description: string | null;
 		priority: Priority;
+		formats?: string[];
 		columnId: string;
 		assigneeId: string | null;
 		dueDate: string | null;
@@ -41,12 +42,21 @@
 	let title = $state('');
 	let description = $state('');
 	let priority = $state<Priority>('medium');
+	let selectedFormats = $state<string[]>([]);
+	let customFormat = $state('');
 	let columnId = $state('');
 	let assigneeId = $state('');
 	let dueDate = $state('');
 	let submitting = $state(false);
 
 	const isEdit = $derived(Boolean(task));
+	const formatOptions = ['IG', 'Feed', 'Story', 'Reels', 'A4', 'A3', 'A5', 'Banner', 'Website'];
+
+	const customFormats = $derived(
+		selectedFormats.filter(
+			(format) => !formatOptions.some((option) => option.toLowerCase() === format.toLowerCase())
+		)
+	);
 
 	$effect(() => {
 		if (!open) return;
@@ -54,11 +64,50 @@
 		title = task?.title ?? '';
 		description = task?.description ?? '';
 		priority = task?.priority ?? 'medium';
+		selectedFormats = [...(task?.formats ?? [])];
+		customFormat = '';
 		columnId = task?.columnId ?? defaultColumnId ?? columns[0]?.id ?? '';
 		assigneeId = task?.assigneeId ?? '';
 		dueDate = task?.dueDate ?? defaultDueDate ?? '';
 		submitting = false;
 	});
+
+	function toggleFormat(format: string) {
+		const exists = selectedFormats.some(
+			(selected) => selected.toLowerCase() === format.toLowerCase()
+		);
+
+		if (exists) {
+			selectedFormats = selectedFormats.filter(
+				(selected) => selected.toLowerCase() !== format.toLowerCase()
+			);
+			return;
+		}
+
+		if (selectedFormats.length >= 10) {
+			toasts.error('Maksimal 10 platform/format per task.');
+			return;
+		}
+
+		selectedFormats = [...selectedFormats, format];
+	}
+
+	function addCustomFormat() {
+		const value = customFormat.trim();
+
+		if (!value) return;
+		if (selectedFormats.some((format) => format.toLowerCase() === value.toLowerCase())) {
+			customFormat = '';
+			return;
+		}
+		if (selectedFormats.length >= 10) {
+			toasts.error('Maksimal 10 platform/format per task.');
+			return;
+		}
+
+		selectedFormats = [...selectedFormats, value.slice(0, 30)];
+		customFormat = '';
+	}
 </script>
 
 <Modal
@@ -126,6 +175,78 @@
 				placeholder="Detail tambahan, link referensi, atau acceptance criteria..."
 				class="w-full resize-none rounded-xl border-slate-300 px-3.5 py-2.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
 			></textarea>
+		</div>
+
+		<div>
+			<span class="mb-1.5 block text-sm font-medium text-slate-700">Platform / Format</span>
+			<p class="mb-2 text-xs text-slate-400">
+				Pilih satu atau beberapa. Contoh: IG untuk feed Instagram, A4 untuk cetak.
+			</p>
+
+			<div class="flex flex-wrap gap-2">
+				{#each formatOptions as format (format)}
+					{@const active = selectedFormats.some(
+						(selected) => selected.toLowerCase() === format.toLowerCase()
+					)}
+					<button
+						type="button"
+						aria-pressed={active}
+						onclick={() => toggleFormat(format)}
+						class={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+							active
+								? 'border-indigo-600 bg-indigo-600 text-white'
+								: 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+						}`}
+					>
+						{format}
+					</button>
+				{/each}
+			</div>
+
+			{#if customFormats.length}
+				<div class="mt-2 flex flex-wrap gap-1.5">
+					{#each customFormats as format (format)}
+						<span
+							class="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700"
+						>
+							{format}
+							<button
+								type="button"
+								onclick={() => toggleFormat(format)}
+								class="rounded p-0.5 hover:bg-indigo-100"
+								aria-label={`Hapus format ${format}`}
+							>
+								<Icon name="x" size={11} />
+							</button>
+						</span>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="mt-2 flex gap-2">
+				<input
+					type="text"
+					bind:value={customFormat}
+					onkeydown={(event) => {
+						if (event.key === 'Enter') {
+							event.preventDefault();
+							addCustomFormat();
+						}
+					}}
+					maxlength="30"
+					placeholder="Format lain, mis. 1080x1080"
+					class="min-w-0 flex-1 rounded-xl border-slate-300 px-3 py-2 text-xs shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+				/>
+				<button
+					type="button"
+					onclick={addCustomFormat}
+					class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+				>
+					Tambah
+				</button>
+			</div>
+
+			<input type="hidden" name="formats" value={selectedFormats.join(',')} />
 		</div>
 
 		<div class="grid gap-4 sm:grid-cols-2">

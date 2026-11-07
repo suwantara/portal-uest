@@ -34,6 +34,18 @@ describe('task schema', () => {
 		expect(result.success).toBe(false);
 	});
 
+	it('parses and deduplicates platforms and formats', () => {
+		const result = createTaskSchema.safeParse({
+			...validTask,
+			formats: 'IG, A4, ig, 1080x1080'
+		});
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.formats).toEqual(['IG', 'A4', '1080x1080']);
+		}
+	});
+
 	it('parses FormData through the shared helper', () => {
 		const data = new FormData();
 

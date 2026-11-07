@@ -1,0 +1,1 @@
+ALTER TABLE "task" ADD COLUMN "formats" text[] DEFAULT '{}' NOT NULL;

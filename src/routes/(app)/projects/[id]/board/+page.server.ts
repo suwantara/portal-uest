@@ -37,6 +37,7 @@ export const load: PageServerLoad = async ({ params, depends }) => {
 				title: task.title,
 				description: task.description,
 				priority: task.priority,
+				formats: task.formats,
 				columnId: task.columnId,
 				assigneeId: task.assigneeId,
 				assigneeName: userTable.name,

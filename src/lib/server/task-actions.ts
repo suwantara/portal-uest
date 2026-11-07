@@ -44,7 +44,7 @@ export async function createTaskAction(
 	const parsed = parseFormData(createTaskSchema, data);
 	if (!parsed.success) return fail(400, { error: parsed.error });
 
-	const { title, description, priority, columnId, assigneeId, dueDate } = parsed.data;
+	const { title, description, priority, formats, columnId, assigneeId, dueDate } = parsed.data;
 
 	if (!(await validateProject(projectId, workspaceId))) {
 		return fail(404, { error: 'Project tidak ditemukan.' });
@@ -62,6 +62,7 @@ export async function createTaskAction(
 		title,
 		description: description || null,
 		priority,
+		formats,
 		assigneeId: assigneeId || null,
 		dueDate: dueDate || null,
 		position: await nextPosition(projectId, columnId),
@@ -75,7 +76,8 @@ export async function updateTaskAction(projectId: string, data: FormData) {
 	const parsed = parseFormData(updateTaskSchema, data);
 	if (!parsed.success) return fail(400, { error: parsed.error });
 
-	const { taskId, title, description, priority, columnId, assigneeId, dueDate } = parsed.data;
+	const { taskId, title, description, priority, formats, columnId, assigneeId, dueDate } =
+		parsed.data;
 
 	const existing = await db.query.task.findFirst({
 		where: and(eq(task.id, taskId), eq(task.projectId, projectId))
@@ -100,6 +102,7 @@ export async function updateTaskAction(projectId: string, data: FormData) {
 			title,
 			description: description || null,
 			priority,
+			formats,
 			columnId,
 			assigneeId: assigneeId || null,
 			dueDate: dueDate || null,

@@ -42,6 +42,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				title: task.title,
 				description: task.description,
 				priority: task.priority,
+				formats: task.formats,
 				columnId: task.columnId,
 				columnName: boardColumn.name,
 				isDone: boardColumn.isDone,

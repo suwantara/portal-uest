@@ -126,6 +126,7 @@ export const task = pgTable(
 		title: text('title').notNull(),
 		description: text('description'),
 		priority: text('priority').$type<TaskPriority>().notNull().default('medium'),
+		formats: text('formats').array().notNull().default([]),
 		assigneeId: text('assignee_id').references(() => user.id, { onDelete: 'set null' }),
 		dueDate: date('due_date'),
 		position: integer('position').notNull().default(0),

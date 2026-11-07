@@ -77,6 +77,14 @@ memisahkan akses antar sie/divisi:
 Nama, deskripsi, dan warna project dapat diubah lewat tombol **Edit project**
 pada header project.
 
+### Task
+
+- Task memiliki field **Platform / Format** yang bisa diisi lebih dari satu,
+  misalnya `IG` dan `A4`.
+- Pilihan cepat tersedia: IG, Feed, Story, Reels, A4, A3, A5, Banner, Website.
+- Format lain bisa ditambahkan manual (mis. `1080x1080`).
+- Format tampil sebagai chip pada kartu kanban.
+
 ### Dokumen
 
 - Menu **Dokumen** di sidebar menampilkan dokumen dari **semua project di
@@ -101,7 +109,7 @@ pada header project.
 - `project` — pengelompokan pekerjaan.
 - `project_member` — daftar anggota yang boleh mengakses sebuah project.
 - `board_column` — kolom kanban kustom + flag `is_done`.
-- `task` — task dengan prioritas, assignee, dan tenggat (dipakai kalender).
+- `task` — task dengan prioritas, platform/format, assignee, dan tenggat (dipakai kalender).
 - `document` — metadata file; isi file disimpan di `UPLOAD_DIR` atau R2.
 - `link_note` — bookmark dengan deskripsi dan tag.
 - Tabel `user`, `session`, `account`, `verification` dikelola Better Auth.

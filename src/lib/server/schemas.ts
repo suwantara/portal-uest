@@ -5,6 +5,7 @@ import {
 	idSchema,
 	isIsoDate,
 	normalizeUrl,
+	parseFormats,
 	parseTags,
 	passwordSchema
 } from './validation.ts';
@@ -80,6 +81,13 @@ const taskFields = {
 		.max(200, 'Judul task maksimal 200 karakter.'),
 	description: descriptionSchema(2000),
 	priority: prioritySchema,
+	formats: z
+		.string()
+		.trim()
+		.max(500, 'Format maksimal 500 karakter.')
+		.optional()
+		.default('')
+		.transform(parseFormats),
 	columnId: idSchema,
 	assigneeId: z.string().trim().max(100).optional().default(''),
 	dueDate: dueDateSchema

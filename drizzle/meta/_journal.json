@@ -15,6 +15,13 @@
       "when": 1793997007226,
       "tag": "0001_steady_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794041877263,
+      "tag": "0002_square_vapor",
+      "breakpoints": true
     }
   ]
 }
