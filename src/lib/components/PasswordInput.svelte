@@ -8,6 +8,7 @@
 		placeholder?: string;
 		autocomplete?: 'current-password' | 'new-password';
 		minlength?: number;
+		value?: string;
 	};
 
 	let {
@@ -16,7 +17,8 @@
 		label,
 		placeholder = '••••••••',
 		autocomplete = 'current-password',
-		minlength
+		minlength,
+		value = $bindable('')
 	}: Props = $props();
 
 	let visible = $state(false);
@@ -33,6 +35,7 @@
 			{minlength}
 			{autocomplete}
 			{placeholder}
+			bind:value
 			class="w-full rounded-xl border-slate-300 bg-white py-2.5 pr-11 pl-3.5 text-sm shadow-sm transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
 		/>
 		<button

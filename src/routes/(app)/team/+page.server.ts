@@ -12,7 +12,12 @@ import { requireManager, requireWorkspace } from '#lib/server/auth-guard.ts';
 import { isRegistrationEnabled } from '#lib/server/registration.ts';
 import { ensureWorkspaceMembership } from '#lib/server/workspace.ts';
 import { auth } from '#lib/server/auth.ts';
-import { createMemberSchema, updateRoleSchema } from '#lib/server/schemas.ts';
+import {
+	createMemberSchema,
+	memberIdSchema,
+	resetMemberPasswordSchema,
+	updateRoleSchema
+} from '#lib/server/schemas.ts';
 import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -154,5 +159,103 @@ export const actions = {
 			);
 
 		return { success: true };
+	},
+
+	resetPassword: async ({ request }) => {
+		const { workspace, membership, user } = await requireWorkspace();
+
+		if (membership.role !== 'owner') {
+			return fail(403, { error: 'Hanya owner yang dapat mereset password anggota.' });
+		}
+
+		const parsed = parseFormData(resetMemberPasswordSchema, await request.formData());
+		if (!parsed.success) return fail(400, { error: parsed.error });
+
+		const { userId, newPassword } = parsed.data;
+
+		if (userId === user.id) {
+			return fail(400, { error: 'Gunakan halaman Akun untuk mengganti password sendiri.' });
+		}
+
+		const target = await db.query.workspaceMember.findFirst({
+			where: and(eq(workspaceMember.userId, userId), eq(workspaceMember.workspaceId, workspace.id))
+		});
+
+		if (!target) return fail(404, { error: 'Anggota tidak ditemukan.' });
+		if (target.role === 'owner') {
+			return fail(400, { error: 'Password akun owner tidak dapat direset dari sini.' });
+		}
+
+		const [targetUser] = await db
+			.select({ name: userTable.name, email: userTable.email })
+			.from(userTable)
+			.where(eq(userTable.id, userId))
+			.limit(1);
+
+		try {
+			const context = await auth.$context;
+			const passwordHash = await context.password.hash(newPassword);
+			const account = await context.internalAdapter.findCredentialAccount(userId);
+
+			if (account) {
+				await context.internalAdapter.updateAccount(account.id, { password: passwordHash });
+			} else {
+				await context.internalAdapter.linkAccount({
+					userId,
+					providerId: 'credential',
+					accountId: userId,
+					password: passwordHash
+				});
+			}
+
+			await context.internalAdapter.deleteUserSessions(userId);
+
+			return { success: true, name: targetUser?.name ?? 'Anggota' };
+		} catch (error) {
+			console.error('[team] Failed to reset member password', error);
+			return fail(500, { error: 'Gagal mereset password anggota.' });
+		}
+	},
+
+	deleteMember: async ({ request }) => {
+		const { workspace, membership, user } = await requireWorkspace();
+
+		if (membership.role !== 'owner') {
+			return fail(403, { error: 'Hanya owner yang dapat menghapus akun anggota.' });
+		}
+
+		const parsed = parseFormData(memberIdSchema, await request.formData());
+		if (!parsed.success) return fail(400, { error: parsed.error });
+
+		const { userId } = parsed.data;
+
+		if (userId === user.id) {
+			return fail(400, { error: 'Anda tidak dapat menghapus akun sendiri.' });
+		}
+
+		const target = await db.query.workspaceMember.findFirst({
+			where: and(eq(workspaceMember.userId, userId), eq(workspaceMember.workspaceId, workspace.id))
+		});
+
+		if (!target) return fail(404, { error: 'Anggota tidak ditemukan.' });
+		if (target.role === 'owner') {
+			return fail(400, { error: 'Akun owner tidak dapat dihapus.' });
+		}
+
+		const [targetUser] = await db
+			.select({ name: userTable.name })
+			.from(userTable)
+			.where(eq(userTable.id, userId))
+			.limit(1);
+
+		try {
+			const context = await auth.$context;
+			await context.internalAdapter.deleteUser(userId);
+
+			return { success: true, name: targetUser?.name ?? 'Anggota' };
+		} catch (error) {
+			console.error('[team] Failed to delete member', error);
+			return fail(500, { error: 'Gagal menghapus akun anggota.' });
+		}
 	}
 } satisfies Actions;

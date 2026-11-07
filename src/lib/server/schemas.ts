@@ -148,6 +148,18 @@ export const createProjectSchema = z.object({
 export const updateProjectSchema = createProjectSchema;
 export const projectIdSchema = z.object({ projectId: idSchema });
 export const projectMemberSchema = z.object({ userId: idSchema });
+export const memberIdSchema = projectMemberSchema;
+
+export const resetMemberPasswordSchema = z
+	.object({
+		userId: idSchema,
+		newPassword: passwordSchema,
+		confirmPassword: z.string()
+	})
+	.refine((data) => data.newPassword === data.confirmPassword, {
+		message: 'Konfirmasi password baru tidak sama.',
+		path: ['confirmPassword']
+	});
 
 export const createColumnSchema = z.object({
 	name: z

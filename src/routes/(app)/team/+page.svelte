@@ -10,17 +10,32 @@
 
 	let { data }: PageProps = $props();
 
+	type Member = (typeof data.members)[number];
+
 	let memberOpen = $state(false);
 	let memberName = $state('');
 	let memberEmail = $state('');
 	let memberRole = $state<'member' | 'admin'>('member');
 	let memberSubmitting = $state(false);
 
+	let resetOpen = $state(false);
+	let resetTarget = $state<Member | null>(null);
+	let resetPassword = $state('');
+	let resetConfirm = $state('');
+	let resetSubmitting = $state(false);
+
 	function openMemberModal() {
 		memberName = '';
 		memberEmail = '';
 		memberRole = 'member';
 		memberOpen = true;
+	}
+
+	function openResetModal(member: Member) {
+		resetTarget = member;
+		resetPassword = '';
+		resetConfirm = '';
+		resetOpen = true;
 	}
 
 	const roleLabel: Record<string, string> = {
@@ -30,6 +45,7 @@
 	};
 
 	const canManage = $derived(data.role === 'owner' || data.role === 'admin');
+	const isOwner = $derived(data.role === 'owner');
 
 	async function copyInvite() {
 		try {
@@ -154,7 +170,7 @@
 						<span class="text-xs text-slate-400">Gabung {formatDate(member.joinedAt)}</span>
 					</div>
 
-					<div class="sm:w-36 sm:text-right">
+					<div class="flex items-center gap-2 sm:w-52 sm:justify-end">
 						{#if canManage && member.role !== 'owner' && member.id !== data.currentUserId}
 							<form
 								method="POST"
@@ -196,6 +212,65 @@
 							>
 								{roleLabel[member.role] ?? member.role}
 							</span>
+						{/if}
+
+						{#if isOwner && member.role !== 'owner' && member.id !== data.currentUserId}
+							<details class="relative">
+								<summary
+									class="flex cursor-pointer list-none items-center justify-center rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+									aria-label={`Aksi untuk ${member.name}`}
+								>
+									<Icon name="more" size={16} />
+								</summary>
+								<div
+									class="absolute right-0 z-20 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+								>
+									<button
+										type="button"
+										onclick={() => openResetModal(member)}
+										class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-600 hover:bg-slate-50"
+									>
+										<Icon name="key" size={14} />
+										Reset password
+									</button>
+
+									<form
+										method="POST"
+										action="?/deleteMember"
+										onsubmit={(event) => {
+											if (
+												!confirm(
+													`Hapus akun ${member.name} (${member.email})? Tindakan ini tidak dapat dibatalkan.`
+												)
+											) {
+												event.preventDefault();
+											}
+										}}
+										use:enhance={() => {
+											return async ({ result, update }) => {
+												await update();
+												if (result.type === 'success') toasts.success('Akun anggota dihapus.');
+												else if (result.type === 'failure') {
+													toasts.error(
+														typeof result.data?.error === 'string'
+															? result.data.error
+															: 'Gagal menghapus akun anggota.'
+													);
+												}
+											};
+										}}
+									>
+										<input type="hidden" name="userId" value={member.id} />
+										<button
+											type="submit"
+											class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-rose-600 hover:bg-rose-50"
+										>
+											<Icon name="trash" size={14} />
+											Hapus akun
+										</button>
+									</form>
+								</div>
+							</details>
 						{/if}
 					</div>
 				</div>
@@ -312,6 +387,87 @@
 				{:else}
 					<Icon name="plus" size={16} />
 					Buat anggota
+				{/if}
+			</button>
+		</div>
+	</form>
+</Modal>
+
+<Modal
+	bind:open={resetOpen}
+	title="Reset password anggota"
+	description={resetTarget
+		? `Password baru untuk ${resetTarget.name} (${resetTarget.email}). Semua sesi lama akan dikeluarkan.`
+		: ''}
+>
+	<form
+		method="POST"
+		action="?/resetPassword"
+		use:enhance={() => {
+			resetSubmitting = true;
+			return async ({ result, update }) => {
+				await update();
+				resetSubmitting = false;
+
+				if (result.type === 'success') {
+					resetOpen = false;
+					resetPassword = '';
+					resetConfirm = '';
+					toasts.success('Password anggota berhasil direset.');
+				} else if (result.type === 'failure') {
+					toasts.error(
+						typeof result.data?.error === 'string'
+							? result.data.error
+							: 'Gagal mereset password anggota.'
+					);
+				}
+			};
+		}}
+		class="space-y-5"
+	>
+		{#if resetTarget}
+			<input type="hidden" name="userId" value={resetTarget.id} />
+		{/if}
+
+		<PasswordInput
+			id="reset-password"
+			name="newPassword"
+			label="Password baru"
+			placeholder="Min. 8 karakter"
+			autocomplete="new-password"
+			minlength={8}
+			bind:value={resetPassword}
+		/>
+		<PasswordInput
+			id="reset-confirm-password"
+			name="confirmPassword"
+			label="Ulangi password baru"
+			placeholder="Ulangi password"
+			autocomplete="new-password"
+			minlength={8}
+			bind:value={resetConfirm}
+		/>
+
+		<div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+			<button
+				type="button"
+				onclick={() => (resetOpen = false)}
+				class="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+			>
+				Batal
+			</button>
+			<button
+				type="submit"
+				disabled={resetSubmitting}
+				class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				{#if resetSubmitting}
+					<span class="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+					></span>
+					Menyimpan...
+				{:else}
+					<Icon name="key" size={16} />
+					Reset password
 				{/if}
 			</button>
 		</div>
