@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import { confirmAction } from '#lib/confirm.svelte.ts';
 	import Icon from '#lib/components/Icon.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
 	import { formatDate } from '#lib/utils.ts';
@@ -135,14 +136,10 @@
 						<form
 							method="POST"
 							action="?/removeMember"
-							onsubmit={(event) => {
-								if (
-									!confirm(
-										`Keluarkan ${member.name} dari project ini? Task yang di-assign kepadanya akan menjadi unassigned.`
-									)
-								) {
-									event.preventDefault();
-								}
+							use:confirmAction={{
+								title: 'Keluarkan anggota?',
+								message: `${member.name} akan dikeluarkan dari project ini. Task yang di-assign kepadanya akan menjadi unassigned.`,
+								confirmLabel: 'Keluarkan'
 							}}
 							use:enhance={() => {
 								return async ({ result, update }) => {

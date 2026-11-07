@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { confirmAction } from '#lib/confirm.svelte.ts';
 	import Icon from './Icon.svelte';
 	import Modal from './Modal.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
@@ -222,8 +223,10 @@
 		<form
 			method="POST"
 			action="?/deleteTask"
-			onsubmit={(event) => {
-				if (!confirm(`Hapus task "${task.title}"?`)) event.preventDefault();
+			use:confirmAction={{
+				title: 'Hapus task?',
+				message: `Task "${task.title}" akan dihapus permanen.`,
+				confirmLabel: 'Hapus task'
 			}}
 			use:enhance={() => {
 				return async ({ result, update }) => {

@@ -3,6 +3,7 @@
 	import { invalidate, refreshAll } from '$app/navigation';
 	import { SvelteMap } from 'svelte/reactivity';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import { confirmAction } from '#lib/confirm.svelte.ts';
 	import Icon from '#lib/components/Icon.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import PriorityDot from '#lib/components/PriorityDot.svelte';
@@ -267,8 +268,10 @@
 								<form
 									method="POST"
 									action="?/deleteColumn"
-									onsubmit={(event) => {
-										if (!confirm(`Hapus kolom "${column.name}"?`)) event.preventDefault();
+									use:confirmAction={{
+										title: 'Hapus kolom?',
+										message: `Kolom "${column.name}" akan dihapus. Kolom yang masih memiliki task tidak dapat dihapus.`,
+										confirmLabel: 'Hapus kolom'
 									}}
 									use:enhance={() => {
 										return async ({ result, update }) => {

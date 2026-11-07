@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { confirmAction } from '#lib/confirm.svelte.ts';
 	import Icon from '#lib/components/Icon.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
@@ -69,14 +70,10 @@
 							<form
 								method="POST"
 								action="?/deleteProject"
-								onsubmit={(event) => {
-									if (
-										!confirm(
-											`Hapus project "${project.name}" beserta seluruh task, dokumen, dan link?`
-										)
-									) {
-										event.preventDefault();
-									}
+								use:confirmAction={{
+									title: 'Hapus project?',
+									message: `Project "${project.name}" beserta seluruh task, dokumen, dan link akan dihapus permanen.`,
+									confirmLabel: 'Hapus project'
 								}}
 								use:enhance={() => {
 									return async ({ result, update }) => {

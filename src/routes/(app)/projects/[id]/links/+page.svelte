@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { confirmAction } from '#lib/confirm.svelte.ts';
 	import Icon from '#lib/components/Icon.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
@@ -106,8 +107,10 @@
 						<form
 							method="POST"
 							action="?/deleteLink"
-							onsubmit={(event) => {
-								if (!confirm(`Hapus link "${link.title}"?`)) event.preventDefault();
+							use:confirmAction={{
+								title: 'Hapus link?',
+								message: `Link "${link.title}" akan dihapus dari project ini.`,
+								confirmLabel: 'Hapus link'
 							}}
 							use:enhance={() => {
 								return async ({ result, update }) => {

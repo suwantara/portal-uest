@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import DocumentEditModal from '#lib/components/DocumentEditModal.svelte';
 	import DocumentPreviewModal from '#lib/components/DocumentPreviewModal.svelte';
+	import { confirmAction } from '#lib/confirm.svelte.ts';
 	import Icon from '#lib/components/Icon.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
 	import { formatBytes, formatDateTime } from '#lib/utils.ts';
@@ -208,8 +209,10 @@
 								<form
 									method="POST"
 									action="?/deleteDocument"
-									onsubmit={(event) => {
-										if (!confirm(`Hapus dokumen "${doc.name}"?`)) event.preventDefault();
+									use:confirmAction={{
+										title: 'Hapus dokumen?',
+										message: `Dokumen "${doc.name}" akan dihapus permanen dari penyimpanan.`,
+										confirmLabel: 'Hapus dokumen'
 									}}
 									use:enhance={() => {
 										return async ({ result, update }) => {

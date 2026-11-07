@@ -2,6 +2,7 @@
 	import { asset } from '$app/paths';
 	import './layout.css';
 	import favicon from '#lib/assets/favicon.svg';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
 	import Toasts from '#lib/components/Toasts.svelte';
 	import type { LayoutProps } from './$types';
 
@@ -17,3 +18,4 @@
 
 {@render children()}
 <Toasts />
+<ConfirmDialog />

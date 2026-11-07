@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import { confirmAction } from '#lib/confirm.svelte.ts';
 	import Icon from '#lib/components/Icon.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import PasswordInput from '#lib/components/PasswordInput.svelte';
@@ -237,14 +238,10 @@
 									<form
 										method="POST"
 										action="?/deleteMember"
-										onsubmit={(event) => {
-											if (
-												!confirm(
-													`Hapus akun ${member.name} (${member.email})? Tindakan ini tidak dapat dibatalkan.`
-												)
-											) {
-												event.preventDefault();
-											}
+										use:confirmAction={{
+											title: 'Hapus akun anggota?',
+											message: `Akun ${member.name} (${member.email}) akan dihapus permanen. Task yang di-assign kepadanya menjadi unassigned.`,
+											confirmLabel: 'Hapus akun'
 										}}
 										use:enhance={() => {
 											return async ({ result, update }) => {
