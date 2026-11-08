@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { auth } from '#lib/server/auth.ts';
 import { requireWorkspace } from '#lib/server/auth-guard.ts';
-import { changePasswordSchema } from '#lib/server/schemas.ts';
+import { changePasswordSchema, updateProfileSchema } from '#lib/server/schemas.ts';
 import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -32,6 +32,25 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions = {
+	updateProfile: async ({ request }) => {
+		await requireWorkspace();
+
+		const parsed = parseFormData(updateProfileSchema, await request.formData());
+		if (!parsed.success) return fail(400, { error: parsed.error });
+
+		try {
+			await auth.api.updateUser({
+				body: { name: parsed.data.name },
+				headers: request.headers
+			});
+		} catch (error) {
+			console.error('[settings] Failed to update profile', error);
+			return fail(500, { error: 'Gagal memperbarui nama akun.' });
+		}
+
+		return { success: true, name: parsed.data.name };
+	},
+
 	changePassword: async ({ request }) => {
 		await requireWorkspace();
 

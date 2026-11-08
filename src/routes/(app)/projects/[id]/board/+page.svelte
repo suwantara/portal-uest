@@ -9,7 +9,7 @@
 	import PriorityDot from '#lib/components/PriorityDot.svelte';
 	import TaskModal from '#lib/components/TaskModal.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
-	import { formatDate } from '#lib/utils.ts';
+	import { APP_TIMEZONE, formatDate } from '#lib/utils.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -38,7 +38,8 @@
 		lastSynced = new Intl.DateTimeFormat('id-ID', {
 			hour: '2-digit',
 			minute: '2-digit',
-			second: '2-digit'
+			second: '2-digit',
+			timeZone: APP_TIMEZONE
 		}).format(new Date());
 	}
 

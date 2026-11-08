@@ -93,6 +93,8 @@ const taskFields = {
 	dueDate: dueDateSchema
 };
 
+export const updateProfileSchema = z.object({ name: nameSchema });
+
 export const loginSchema = z.object({
 	email: emailSchema,
 	password: z.string().min(1, 'Password wajib diisi.').max(128, 'Password maksimal 128 karakter.'),

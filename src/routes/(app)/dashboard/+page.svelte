@@ -12,8 +12,9 @@
 			weekday: 'long',
 			day: 'numeric',
 			month: 'long',
-			year: 'numeric'
-		}).format(new Date(`${data.today}T00:00:00`))
+			year: 'numeric',
+			timeZone: 'UTC'
+		}).format(new Date(`${data.today}T00:00:00Z`))
 	);
 
 	const firstName = $derived(data.user.name.split(' ')[0]);
@@ -50,8 +51,8 @@
 	]);
 
 	function daysUntil(date: string): string {
-		const target = new Date(`${date}T00:00:00`);
-		const today = new Date(`${data.today}T00:00:00`);
+		const target = new Date(`${date}T00:00:00Z`);
+		const today = new Date(`${data.today}T00:00:00Z`);
 		const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000);
 		if (diff < 0) return `Telat ${Math.abs(diff)} hari`;
 		if (diff === 0) return 'Hari ini';
@@ -188,12 +189,12 @@
 							class="flex size-10 shrink-0 flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50"
 						>
 							<span class="text-[10px] font-medium text-slate-400 uppercase">
-								{new Intl.DateTimeFormat('id-ID', { month: 'short' })
-									.format(new Date(`${task.dueDate}T00:00:00`))
+								{new Intl.DateTimeFormat('id-ID', { month: 'short', timeZone: 'UTC' })
+									.format(new Date(`${task.dueDate}T00:00:00Z`))
 									.replace('.', '')}
 							</span>
 							<span class="text-sm leading-none font-semibold text-slate-700">
-								{new Date(`${task.dueDate}T00:00:00`).getDate()}
+								{new Date(`${task.dueDate}T00:00:00Z`).getUTCDate()}
 							</span>
 						</div>
 						<div class="min-w-0 flex-1">

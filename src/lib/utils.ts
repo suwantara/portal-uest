@@ -17,14 +17,22 @@ export function safeRedirect(value: string | null | undefined, fallback = '/dash
 	return value;
 }
 
+export const APP_TIMEZONE = 'Asia/Makassar';
+
 export function formatDate(value: string | Date | null | undefined): string {
 	if (!value) return '—';
-	const date = typeof value === 'string' ? new Date(`${value}T00:00:00`) : value;
+
+	const isDateOnly = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+	const date =
+		typeof value === 'string' ? new Date(isDateOnly ? `${value}T00:00:00Z` : value) : value;
+
 	if (Number.isNaN(date.getTime())) return '—';
+
 	return new Intl.DateTimeFormat('id-ID', {
 		day: 'numeric',
 		month: 'short',
-		year: 'numeric'
+		year: 'numeric',
+		timeZone: isDateOnly ? 'UTC' : APP_TIMEZONE
 	}).format(date);
 }
 
@@ -37,7 +45,8 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 		month: 'short',
 		year: 'numeric',
 		hour: '2-digit',
-		minute: '2-digit'
+		minute: '2-digit',
+		timeZone: APP_TIMEZONE
 	}).format(date);
 }
 
@@ -49,7 +58,15 @@ export function formatBytes(bytes: number): string {
 }
 
 export function todayISO(): string {
-	const now = new Date();
-	const offset = now.getTimezoneOffset() * 60_000;
-	return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+	const parts = new Intl.DateTimeFormat('en-CA', {
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		timeZone: APP_TIMEZONE
+	}).formatToParts(new Date());
+
+	const value = (type: Intl.DateTimeFormatPartTypes) =>
+		parts.find((part) => part.type === type)?.value ?? '';
+
+	return `${value('year')}-${value('month')}-${value('day')}`;
 }
