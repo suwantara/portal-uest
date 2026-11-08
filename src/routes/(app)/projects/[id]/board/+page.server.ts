@@ -2,10 +2,11 @@ import { fail } from '@sveltejs/kit';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { logActivity } from '#lib/server/activity.ts';
 import { db } from '#lib/server/db/index.ts';
-import { boardColumn, task, user as userTable } from '#lib/server/db/schema.ts';
+import { boardColumn, task } from '#lib/server/db/schema.ts';
 import { requireManager, requireProject } from '#lib/server/auth-guard.ts';
 import { updateProjectAction } from '#lib/server/project-actions.ts';
 import { getProjectMembers } from '#lib/server/projects.ts';
+import { getAssigneesByTask } from '#lib/server/task-assignees.ts';
 import {
 	columnIdSchema,
 	createColumnSchema,
@@ -27,7 +28,7 @@ export const load: PageServerLoad = async ({ params, depends }) => {
 
 	const { project, workspace, membership } = await requireProject(params.id);
 
-	const [columns, tasks, members] = await Promise.all([
+	const [columns, taskRows, members] = await Promise.all([
 		db.query.boardColumn.findMany({
 			where: eq(boardColumn.projectId, project.id),
 			orderBy: [asc(boardColumn.position), asc(boardColumn.createdAt)]
@@ -40,24 +41,26 @@ export const load: PageServerLoad = async ({ params, depends }) => {
 				priority: task.priority,
 				formats: task.formats,
 				columnId: task.columnId,
-				assigneeId: task.assigneeId,
-				assigneeName: userTable.name,
 				dueDate: task.dueDate,
 				position: task.position,
 				createdAt: task.createdAt
 			})
 			.from(task)
-			.leftJoin(userTable, eq(task.assigneeId, userTable.id))
 			.where(eq(task.projectId, project.id))
 			.orderBy(asc(task.position), asc(task.createdAt)),
 		getProjectMembers(project.id, workspace.id)
 	]);
 
+	const assigneesByTask = await getAssigneesByTask(taskRows.map((row) => row.id));
+
 	return {
 		role: membership.role,
 		today: todayISO(),
 		columns,
-		tasks,
+		tasks: taskRows.map((row) => ({
+			...row,
+			assignees: assigneesByTask.get(row.id) ?? []
+		})),
 		members
 	};
 };

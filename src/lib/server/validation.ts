@@ -75,6 +75,20 @@ export function parseFormats(value: string): string[] {
 		.slice(0, 10);
 }
 
+export function parseIdList(value: string, max = 20): string[] {
+	const seen = new Set<string>();
+
+	return value
+		.split(',')
+		.map((id) => id.trim())
+		.filter((id) => {
+			if (!id || seen.has(id)) return false;
+			seen.add(id);
+			return true;
+		})
+		.slice(0, max);
+}
+
 export function parseTags(value: string): string[] {
 	return [
 		...new Set(

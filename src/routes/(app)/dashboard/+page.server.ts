@@ -6,6 +6,7 @@ import {
 	linkNote,
 	project,
 	task,
+	taskAssignee,
 	workspaceMember
 } from '#lib/server/db/schema.ts';
 import { requireWorkspace } from '#lib/server/auth-guard.ts';
@@ -92,7 +93,8 @@ export const load: PageServerLoad = async () => {
 			.from(task)
 			.innerJoin(boardColumn, eq(task.columnId, boardColumn.id))
 			.innerJoin(project, eq(task.projectId, project.id))
-			.where(and(taskScope, eq(task.assigneeId, user.id), eq(boardColumn.isDone, false)))
+			.innerJoin(taskAssignee, eq(taskAssignee.taskId, task.id))
+			.where(and(taskScope, eq(taskAssignee.userId, user.id), eq(boardColumn.isDone, false)))
 			.orderBy(sql`${task.dueDate} asc nulls last`, asc(task.createdAt))
 			.limit(6),
 		db

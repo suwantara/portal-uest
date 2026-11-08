@@ -4,6 +4,7 @@ import {
 	project,
 	projectMember,
 	task,
+	taskAssignee,
 	user as userTable,
 	workspaceMember,
 	type WorkspaceRole
@@ -68,10 +69,14 @@ export async function addProjectMember(projectId: string, userId: string): Promi
 
 export async function removeProjectMember(projectId: string, userId: string): Promise<void> {
 	await db.transaction(async (tx) => {
+		const projectTaskIds = tx
+			.select({ id: task.id })
+			.from(task)
+			.where(eq(task.projectId, projectId));
+
 		await tx
-			.update(task)
-			.set({ assigneeId: null, updatedAt: new Date() })
-			.where(and(eq(task.projectId, projectId), eq(task.assigneeId, userId)));
+			.delete(taskAssignee)
+			.where(and(eq(taskAssignee.userId, userId), inArray(taskAssignee.taskId, projectTaskIds)));
 
 		await tx
 			.delete(projectMember)

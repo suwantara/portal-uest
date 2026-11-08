@@ -1,9 +1,10 @@
 import { and, asc, eq, gte, lt } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
-import { boardColumn, task, user as userTable } from '#lib/server/db/schema.ts';
+import { boardColumn, task } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
 import { updateProjectAction } from '#lib/server/project-actions.ts';
 import { getProjectMembers } from '#lib/server/projects.ts';
+import { getAssigneesByTask } from '#lib/server/task-assignees.ts';
 import { createTaskAction, deleteTaskAction, updateTaskAction } from '#lib/server/task-actions.ts';
 import { todayISO } from '#lib/utils.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -31,7 +32,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const from = `${month}-01`;
 	const to = `${nextMonth(month)}-01`;
 
-	const [columns, tasks, members] = await Promise.all([
+	const [columns, taskRows, members] = await Promise.all([
 		db.query.boardColumn.findMany({
 			where: eq(boardColumn.projectId, project.id),
 			orderBy: [asc(boardColumn.position), asc(boardColumn.createdAt)]
@@ -46,17 +47,16 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				columnId: task.columnId,
 				columnName: boardColumn.name,
 				isDone: boardColumn.isDone,
-				assigneeId: task.assigneeId,
-				assigneeName: userTable.name,
 				dueDate: task.dueDate
 			})
 			.from(task)
 			.innerJoin(boardColumn, eq(task.columnId, boardColumn.id))
-			.leftJoin(userTable, eq(task.assigneeId, userTable.id))
 			.where(and(eq(task.projectId, project.id), gte(task.dueDate, from), lt(task.dueDate, to)))
 			.orderBy(asc(task.dueDate), asc(task.position)),
 		getProjectMembers(project.id, workspace.id)
 	]);
+
+	const assigneesByTask = await getAssigneesByTask(taskRows.map((row) => row.id));
 
 	return {
 		projectId: project.id,
@@ -64,7 +64,10 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		month,
 		today: todayISO(),
 		columns,
-		tasks,
+		tasks: taskRows.map((row) => ({
+			...row,
+			assignees: assigneesByTask.get(row.id) ?? []
+		})),
 		members
 	};
 };

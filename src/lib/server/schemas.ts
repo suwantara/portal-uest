@@ -6,6 +6,7 @@ import {
 	isIsoDate,
 	normalizeUrl,
 	parseFormats,
+	parseIdList,
 	parseTags,
 	passwordSchema
 } from './validation.ts';
@@ -89,7 +90,14 @@ const taskFields = {
 		.default('')
 		.transform(parseFormats),
 	columnId: idSchema,
-	assigneeId: z.string().trim().max(100).optional().default(''),
+	assigneeIds: z
+		.string()
+		.trim()
+		.max(2000, 'Daftar assignee tidak valid.')
+		.optional()
+		.default('')
+		.transform((value) => parseIdList(value))
+		.pipe(z.array(idSchema).max(20, 'Maksimal 20 assignee per task.')),
 	dueDate: dueDateSchema
 };
 

@@ -386,8 +386,24 @@
 										</span>
 									{/if}
 								</div>
-								{#if item.assigneeName}
-									<Avatar name={item.assigneeName} size="xs" />
+								{#if item.assignees.length}
+									<div
+										class="flex items-center -space-x-1.5"
+										title={item.assignees.map((assignee) => assignee.name).join(', ')}
+									>
+										{#each item.assignees.slice(0, 3) as assignee (assignee.id)}
+											<span class="rounded-full ring-2 ring-white">
+												<Avatar name={assignee.name} size="xs" />
+											</span>
+										{/each}
+										{#if item.assignees.length > 3}
+											<span
+												class="flex size-6 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-600 ring-2 ring-white"
+											>
+												+{item.assignees.length - 3}
+											</span>
+										{/if}
+									</div>
 								{/if}
 							</div>
 						</div>

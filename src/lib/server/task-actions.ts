@@ -1,8 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { logActivity, type ActivityActor } from './activity.ts';
 import { db } from './db/index.ts';
-import { boardColumn, project, projectMember, task } from './db/schema.ts';
+import { boardColumn, project, projectMember, task, taskAssignee } from './db/schema.ts';
 import { createTaskSchema, moveTaskSchema, taskIdSchema, updateTaskSchema } from './schemas.ts';
 import { parseFormData } from './validation.ts';
 
@@ -21,12 +21,15 @@ async function validateColumn(projectId: string, columnId: string) {
 	});
 }
 
-async function validateAssignee(assigneeId: string, projectId: string): Promise<boolean> {
-	if (!assigneeId) return true;
-	const member = await db.query.projectMember.findFirst({
-		where: and(eq(projectMember.userId, assigneeId), eq(projectMember.projectId, projectId))
-	});
-	return Boolean(member);
+async function validateAssignees(assigneeIds: string[], projectId: string): Promise<boolean> {
+	if (!assigneeIds.length) return true;
+
+	const members = await db
+		.select({ userId: projectMember.userId })
+		.from(projectMember)
+		.where(and(eq(projectMember.projectId, projectId), inArray(projectMember.userId, assigneeIds)));
+
+	return members.length === assigneeIds.length;
 }
 
 async function nextPosition(projectId: string, columnId: string): Promise<number> {
@@ -47,7 +50,7 @@ export async function createTaskAction(
 	const parsed = parseFormData(createTaskSchema, data);
 	if (!parsed.success) return fail(400, { error: parsed.error });
 
-	const { title, description, priority, formats, columnId, assigneeId, dueDate } = parsed.data;
+	const { title, description, priority, formats, columnId, assigneeIds, dueDate } = parsed.data;
 
 	if (!(await validateProject(project.id, project.workspaceId))) {
 		return fail(404, { error: 'Project tidak ditemukan.' });
@@ -55,25 +58,36 @@ export async function createTaskAction(
 	if (!(await validateColumn(project.id, columnId))) {
 		return fail(400, { error: 'Kolom tidak valid.' });
 	}
-	if (!(await validateAssignee(assigneeId, project.id))) {
+	if (!(await validateAssignees(assigneeIds, project.id))) {
 		return fail(400, { error: 'Assignee bukan anggota project.' });
 	}
 
-	const [created] = await db
-		.insert(task)
-		.values({
-			projectId: project.id,
-			columnId,
-			title,
-			description: description || null,
-			priority,
-			formats,
-			assigneeId: assigneeId || null,
-			dueDate: dueDate || null,
-			position: await nextPosition(project.id, columnId),
-			createdBy: actor.id
-		})
-		.returning({ id: task.id });
+	const position = await nextPosition(project.id, columnId);
+
+	const created = await db.transaction(async (tx) => {
+		const [row] = await tx
+			.insert(task)
+			.values({
+				projectId: project.id,
+				columnId,
+				title,
+				description: description || null,
+				priority,
+				formats,
+				dueDate: dueDate || null,
+				position,
+				createdBy: actor.id
+			})
+			.returning({ id: task.id });
+
+		if (assigneeIds.length) {
+			await tx
+				.insert(taskAssignee)
+				.values(assigneeIds.map((userId) => ({ taskId: row.id, userId })));
+		}
+
+		return row;
+	});
 
 	await logActivity({
 		workspaceId: project.workspaceId,
@@ -99,7 +113,7 @@ export async function updateTaskAction(
 	const parsed = parseFormData(updateTaskSchema, data);
 	if (!parsed.success) return fail(400, { error: parsed.error });
 
-	const { taskId, title, description, priority, formats, columnId, assigneeId, dueDate } =
+	const { taskId, title, description, priority, formats, columnId, assigneeIds, dueDate } =
 		parsed.data;
 
 	const existing = await db.query.task.findFirst({
@@ -112,27 +126,37 @@ export async function updateTaskAction(
 		return fail(400, { error: 'Kolom tidak valid.' });
 	}
 
-	if (!(await validateAssignee(assigneeId, project.id))) {
+	if (!(await validateAssignees(assigneeIds, project.id))) {
 		return fail(400, { error: 'Assignee bukan anggota project.' });
 	}
 
 	const position =
 		existing.columnId === columnId ? existing.position : await nextPosition(project.id, columnId);
 
-	await db
-		.update(task)
-		.set({
-			title,
-			description: description || null,
-			priority,
-			formats,
-			columnId,
-			assigneeId: assigneeId || null,
-			dueDate: dueDate || null,
-			position,
-			updatedAt: new Date()
-		})
-		.where(and(eq(task.id, taskId), eq(task.projectId, project.id)));
+	await db.transaction(async (tx) => {
+		await tx
+			.update(task)
+			.set({
+				title,
+				description: description || null,
+				priority,
+				formats,
+				columnId,
+				dueDate: dueDate || null,
+				position,
+				updatedAt: new Date()
+			})
+			.where(and(eq(task.id, taskId), eq(task.projectId, project.id)));
+
+		await tx.delete(taskAssignee).where(eq(taskAssignee.taskId, taskId));
+
+		if (assigneeIds.length) {
+			await tx
+				.insert(taskAssignee)
+				.values(assigneeIds.map((userId) => ({ taskId, userId })))
+				.onConflictDoNothing();
+		}
+	});
 
 	await logActivity({
 		workspaceId: project.workspaceId,

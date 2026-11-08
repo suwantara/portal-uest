@@ -6,6 +6,7 @@ import {
 	boardColumn,
 	project,
 	task,
+	taskAssignee,
 	user as userTable,
 	workspaceMember
 } from '#lib/server/db/schema.ts';
@@ -47,14 +48,15 @@ export const load: PageServerLoad = async ({ url }) => {
 
 	const workload = await db
 		.select({
-			assigneeId: task.assigneeId,
+			assigneeId: taskAssignee.userId,
 			total: sql<number>`count(*)::int`
 		})
-		.from(task)
+		.from(taskAssignee)
+		.innerJoin(task, eq(taskAssignee.taskId, task.id))
 		.innerJoin(project, eq(task.projectId, project.id))
 		.innerJoin(boardColumn, eq(task.columnId, boardColumn.id))
 		.where(and(eq(project.workspaceId, workspace.id), eq(boardColumn.isDone, false)))
-		.groupBy(task.assigneeId);
+		.groupBy(taskAssignee.userId);
 
 	const workloadMap = new Map(workload.map((row) => [row.assigneeId, row.total]));
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { confirmAction } from '#lib/confirm.svelte.ts';
+	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
 	import Modal from './Modal.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
@@ -14,7 +15,7 @@
 		priority: Priority;
 		formats?: string[];
 		columnId: string;
-		assigneeId: string | null;
+		assignees?: { id: string; name: string }[];
 		dueDate: string | null;
 	};
 
@@ -45,7 +46,7 @@
 	let selectedFormats = $state<string[]>([]);
 	let customFormat = $state('');
 	let columnId = $state('');
-	let assigneeId = $state('');
+	let selectedAssigneeIds = $state<string[]>([]);
 	let dueDate = $state('');
 	let submitting = $state(false);
 
@@ -67,7 +68,7 @@
 		selectedFormats = [...(task?.formats ?? [])];
 		customFormat = '';
 		columnId = task?.columnId ?? defaultColumnId ?? columns[0]?.id ?? '';
-		assigneeId = task?.assigneeId ?? '';
+		selectedAssigneeIds = task?.assignees?.map((assignee) => assignee.id) ?? [];
 		dueDate = task?.dueDate ?? defaultDueDate ?? '';
 		submitting = false;
 	});
@@ -107,6 +108,20 @@
 
 		selectedFormats = [...selectedFormats, value.slice(0, 30)];
 		customFormat = '';
+	}
+
+	function toggleAssignee(userId: string) {
+		if (selectedAssigneeIds.includes(userId)) {
+			selectedAssigneeIds = selectedAssigneeIds.filter((id) => id !== userId);
+			return;
+		}
+
+		if (selectedAssigneeIds.length >= 20) {
+			toasts.error('Maksimal 20 assignee per task.');
+			return;
+		}
+
+		selectedAssigneeIds = [...selectedAssigneeIds, userId];
 	}
 </script>
 
@@ -285,20 +300,35 @@
 			</div>
 
 			<div>
-				<label for="task-assignee" class="mb-1.5 block text-sm font-medium text-slate-700">
-					Assignee
-				</label>
-				<select
-					id="task-assignee"
-					name="assigneeId"
-					bind:value={assigneeId}
-					class="w-full rounded-xl border-slate-300 px-3.5 py-2.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+				<span class="mb-1.5 block text-sm font-medium text-slate-700">
+					Assignee <span class="font-normal text-slate-400">(bisa lebih dari satu)</span>
+				</span>
+				<div
+					class="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-xl border border-slate-300 bg-white p-2.5 shadow-sm"
 				>
-					<option value="">Belum ditentukan</option>
 					{#each members as member (member.id)}
-						<option value={member.id}>{member.name}</option>
+						{@const active = selectedAssigneeIds.includes(member.id)}
+						<button
+							type="button"
+							aria-pressed={active}
+							onclick={() => toggleAssignee(member.id)}
+							class={`inline-flex items-center gap-1.5 rounded-full border py-1 pr-2.5 pl-1 text-xs font-medium transition ${
+								active
+									? 'border-indigo-600 bg-indigo-600 text-white'
+									: 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+							}`}
+						>
+							<Avatar name={member.name} size="xs" />
+							{member.name}
+							{#if active}
+								<Icon name="check" size={12} />
+							{/if}
+						</button>
+					{:else}
+						<p class="px-1 py-1 text-xs text-slate-400">Belum ada anggota project.</p>
 					{/each}
-				</select>
+				</div>
+				<input type="hidden" name="assigneeIds" value={selectedAssigneeIds.join(',')} />
 			</div>
 
 			<div>

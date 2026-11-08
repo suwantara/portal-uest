@@ -83,8 +83,8 @@ memisahkan akses antar sie/divisi:
 - Owner/admin mengelola anggota lewat tab **Anggota** pada project.
 - Setelah membuat akun baru di halaman **Tim**, tambahkan user tersebut ke
   project yang relevan lewat tab **Anggota**.
-- Mengeluarkan anggota dari project akan membuat task yang di-assign kepadanya
-  menjadi unassigned.
+- Mengeluarkan anggota dari project akan melepas task yang di-assign kepadanya
+  tanpa menghapus assignee lain pada task tersebut.
 
 Nama, deskripsi, dan warna project dapat diubah lewat tombol **Edit project**
 pada header project.
@@ -96,6 +96,11 @@ pada header project.
 - Pilihan cepat tersedia: IG, Feed, Story, Reels, A4, A3, A5, Banner, Website.
 - Format lain bisa ditambahkan manual (mis. `1080x1080`).
 - Format tampil sebagai chip pada kartu kanban.
+- Task dapat memiliki **lebih dari satu assignee**. Semua assignee harus
+  merupakan anggota project tersebut.
+- Avatar assignee tampil bertumpuk pada kartu kanban (maksimal 3, sisanya `+N`).
+- Mengeluarkan anggota dari project otomatis melepas task yang di-assign
+  kepadanya tanpa mengganggu assignee lain.
 
 ### Dokumen
 
@@ -121,7 +126,8 @@ pada header project.
 - `project` — pengelompokan pekerjaan.
 - `project_member` — daftar anggota yang boleh mengakses sebuah project.
 - `board_column` — kolom kanban kustom + flag `is_done`.
-- `task` — task dengan prioritas, platform/format, assignee, dan tenggat (dipakai kalender).
+- `task` — task dengan prioritas, platform/format, dan tenggat (dipakai kalender).
+- `task_assignee` — relasi many-to-many antara task dan anggota project.
 - `document` — metadata file; isi file disimpan di `UPLOAD_DIR` atau R2.
 - `link_note` — bookmark dengan deskripsi dan tag.
 - `activity_log` — audit aktivitas sementara (retensi 24 jam) untuk halaman

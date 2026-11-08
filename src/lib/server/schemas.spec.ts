@@ -13,7 +13,7 @@ const validTask = {
 	description: 'Cek semua modul',
 	priority: 'high',
 	columnId: 'column-1',
-	assigneeId: '',
+	assigneeIds: '',
 	dueDate: '2026-11-10'
 };
 
@@ -43,6 +43,18 @@ describe('task schema', () => {
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.data.formats).toEqual(['IG', 'A4', '1080x1080']);
+		}
+	});
+
+	it('parses and deduplicates multiple assignees', () => {
+		const result = createTaskSchema.safeParse({
+			...validTask,
+			assigneeIds: 'user-1, user-2,user-1'
+		});
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.assigneeIds).toEqual(['user-1', 'user-2']);
 		}
 	});
 
