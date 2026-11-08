@@ -13,6 +13,8 @@ import { user } from './auth.schema';
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type ActivityCategory =
+	'auth' | 'project' | 'task' | 'document' | 'link' | 'member' | 'account';
 
 const timestamps = {
 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -177,6 +179,36 @@ export const linkNote = pgTable(
 		...timestamps
 	},
 	(table) => [index('link_note_project_idx').on(table.projectId)]
+);
+
+export const activityLog = pgTable(
+	'activity_log',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: text('workspace_id')
+			.notNull()
+			.references(() => workspace.id, { onDelete: 'cascade' }),
+		userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+		actorName: text('actor_name').notNull(),
+		actorEmail: text('actor_email').notNull(),
+		action: text('action').notNull(),
+		category: text('category').$type<ActivityCategory>().notNull(),
+		description: text('description').notNull(),
+		projectId: text('project_id').references(() => project.id, { onDelete: 'set null' }),
+		projectName: text('project_name'),
+		entityType: text('entity_type'),
+		entityId: text('entity_id'),
+		ipAddress: text('ip_address'),
+		userAgent: text('user_agent'),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(table) => [
+		index('activity_log_workspace_created_idx').on(table.workspaceId, table.createdAt),
+		index('activity_log_user_idx').on(table.userId),
+		index('activity_log_category_idx').on(table.category)
+	]
 );
 
 export const workspaceRelations = relations(workspace, ({ many }) => ({

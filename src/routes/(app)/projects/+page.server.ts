@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { logActivity } from '#lib/server/activity.ts';
 import { db } from '#lib/server/db/index.ts';
 import {
 	boardColumn,
@@ -108,11 +109,23 @@ export const actions = {
 			return row;
 		});
 
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'project.create',
+			category: 'project',
+			description: `Membuat project “${created.name}”`,
+			project: { id: created.id, name: created.name },
+			entityType: 'project',
+			entityId: created.id,
+			headers: request.headers
+		});
+
 		return { success: true, projectId: created.id };
 	},
 
 	deleteProject: async ({ request }) => {
-		const { workspace, membership } = await requireWorkspace();
+		const { workspace, membership, user } = await requireWorkspace();
 		requireManager(membership.role);
 
 		const data = await request.formData();
@@ -122,9 +135,21 @@ export const actions = {
 		const deleted = await db
 			.delete(project)
 			.where(and(eq(project.id, parsed.data.projectId), eq(project.workspaceId, workspace.id)))
-			.returning({ id: project.id });
+			.returning({ id: project.id, name: project.name });
 
 		if (!deleted.length) return fail(404, { error: 'Project tidak ditemukan.' });
+
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'project.delete',
+			category: 'project',
+			description: `Menghapus project “${deleted[0].name}” beserta seluruh isinya`,
+			projectName: deleted[0].name,
+			entityType: 'project',
+			entityId: deleted[0].id,
+			headers: request.headers
+		});
 
 		return { success: true };
 	}

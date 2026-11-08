@@ -73,17 +73,17 @@ export const actions = {
 	updateProject: updateProjectAction,
 
 	createTask: async ({ request, params }) => {
-		const { project, workspace, user } = await requireProject(params.id);
-		return createTaskAction(project.id, workspace.id, user.id, await request.formData());
+		const { project, user } = await requireProject(params.id);
+		return createTaskAction(project, user, await request.formData(), request.headers);
 	},
 
 	updateTask: async ({ request, params }) => {
-		const { project } = await requireProject(params.id);
-		return updateTaskAction(project.id, await request.formData());
+		const { project, user } = await requireProject(params.id);
+		return updateTaskAction(project, user, await request.formData(), request.headers);
 	},
 
 	deleteTask: async ({ request, params }) => {
-		const { project } = await requireProject(params.id);
-		return deleteTaskAction(project.id, await request.formData());
+		const { project, user } = await requireProject(params.id);
+		return deleteTaskAction(project, user, await request.formData(), request.headers);
 	}
 } satisfies Actions;

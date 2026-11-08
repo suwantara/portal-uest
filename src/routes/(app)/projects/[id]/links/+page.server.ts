@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { and, desc, eq } from 'drizzle-orm';
+import { logActivity } from '#lib/server/activity.ts';
 import { db } from '#lib/server/db/index.ts';
 import { linkNote, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
@@ -44,20 +45,35 @@ export const actions = {
 
 		const { title, url, description, tags } = parsed.data;
 
-		await db.insert(linkNote).values({
-			projectId: project.id,
-			title,
-			url,
-			description: description || null,
-			tags,
-			createdBy: user.id
+		const [created] = await db
+			.insert(linkNote)
+			.values({
+				projectId: project.id,
+				title,
+				url,
+				description: description || null,
+				tags,
+				createdBy: user.id
+			})
+			.returning({ id: linkNote.id });
+
+		await logActivity({
+			workspaceId: project.workspaceId,
+			actor: user,
+			action: 'link.create',
+			category: 'link',
+			description: `Menambahkan link “${title}”`,
+			project,
+			entityType: 'link',
+			entityId: created.id,
+			headers: request.headers
 		});
 
 		return { success: true };
 	},
 
 	updateLink: async ({ request, params }) => {
-		const { project } = await requireProject(params.id);
+		const { project, user } = await requireProject(params.id);
 		const data = await request.formData();
 		const parsed = parseFormData(updateLinkSchema, data);
 		if (!parsed.success) return fail(400, { error: parsed.error });
@@ -78,11 +94,23 @@ export const actions = {
 
 		if (!updated.length) return fail(404, { error: 'Link tidak ditemukan.' });
 
+		await logActivity({
+			workspaceId: project.workspaceId,
+			actor: user,
+			action: 'link.update',
+			category: 'link',
+			description: `Memperbarui link “${title}”`,
+			project,
+			entityType: 'link',
+			entityId: linkId,
+			headers: request.headers
+		});
+
 		return { success: true };
 	},
 
 	deleteLink: async ({ request, params }) => {
-		const { project } = await requireProject(params.id);
+		const { project, user } = await requireProject(params.id);
 		const data = await request.formData();
 		const parsed = parseFormData(linkIdSchema, data);
 		if (!parsed.success) return fail(400, { error: parsed.error });
@@ -90,9 +118,21 @@ export const actions = {
 		const deleted = await db
 			.delete(linkNote)
 			.where(and(eq(linkNote.id, parsed.data.linkId), eq(linkNote.projectId, project.id)))
-			.returning({ id: linkNote.id });
+			.returning({ id: linkNote.id, title: linkNote.title });
 
 		if (!deleted.length) return fail(404, { error: 'Link tidak ditemukan.' });
+
+		await logActivity({
+			workspaceId: project.workspaceId,
+			actor: user,
+			action: 'link.delete',
+			category: 'link',
+			description: `Menghapus link “${deleted[0].title}”`,
+			project,
+			entityType: 'link',
+			entityId: deleted[0].id,
+			headers: request.headers
+		});
 
 		return { success: true };
 	}

@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { logActivity } from '#lib/server/activity.ts';
 import { auth } from '#lib/server/auth.ts';
 import { requireWorkspace } from '#lib/server/auth-guard.ts';
 import { changePasswordSchema, updateProfileSchema } from '#lib/server/schemas.ts';
@@ -33,7 +34,7 @@ export const load: PageServerLoad = async () => {
 
 export const actions = {
 	updateProfile: async ({ request }) => {
-		await requireWorkspace();
+		const { user, workspace } = await requireWorkspace();
 
 		const parsed = parseFormData(updateProfileSchema, await request.formData());
 		if (!parsed.success) return fail(400, { error: parsed.error });
@@ -48,11 +49,22 @@ export const actions = {
 			return fail(500, { error: 'Gagal memperbarui nama akun.' });
 		}
 
+		if (parsed.data.name !== user.name) {
+			await logActivity({
+				workspaceId: workspace.id,
+				actor: { ...user, name: parsed.data.name },
+				action: 'account.profile.update',
+				category: 'account',
+				description: `Mengubah nama akun dari “${user.name}” menjadi “${parsed.data.name}”`,
+				headers: request.headers
+			});
+		}
+
 		return { success: true, name: parsed.data.name };
 	},
 
 	changePassword: async ({ request }) => {
-		await requireWorkspace();
+		const { user, workspace } = await requireWorkspace();
 
 		const data = await request.formData();
 		const parsed = parseFormData(changePasswordSchema, data);
@@ -73,6 +85,15 @@ export const actions = {
 					: 'Gagal mengubah password. Silakan coba lagi.'
 			});
 		}
+
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'account.password.change',
+			category: 'account',
+			description: 'Mengubah password akun',
+			headers: request.headers
+		});
 
 		return { success: true };
 	}

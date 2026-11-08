@@ -14,3 +14,10 @@ test('login page renders the sign-in form', async ({ page }) => {
 	await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: /Masuk/ })).toBeVisible();
 });
+
+test('activity log redirects unauthenticated visitors to login', async ({ page }) => {
+	await page.goto('/activity');
+
+	await expect(page).toHaveURL(/\/login\?redirectTo=/);
+	await expect(page.getByRole('heading', { name: 'Masuk ke workspace' })).toBeVisible();
+});

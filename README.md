@@ -60,6 +60,18 @@ deployment baru tanpa membuka registrasi publik.
 Setiap user yang sudah login dapat mengganti password sendiri melalui halaman
 **Akun** (`/settings`) dengan memverifikasi password saat ini.
 
+### Log aktivitas (khusus owner)
+
+Owner dapat membuka menu **Log aktivitas** (`/activity`) untuk melihat:
+
+- siapa yang login dan logout, termasuk waktu, alamat IP, dan user agent;
+- aktivitas project, task, dokumen, link, dan anggota;
+- perubahan role, reset password, pembuatan/penghapusan akun, serta perubahan
+  nama/password akun sendiri.
+
+Log bersifat sementara: hanya disimpan maksimal **24 jam**, lalu dihapus
+otomatis. Halaman ini tidak dapat diakses admin atau member.
+
 ### Anggota per project
 
 Setiap project memiliki daftar anggotanya sendiri (`project_member`). Ini
@@ -112,6 +124,8 @@ pada header project.
 - `task` — task dengan prioritas, platform/format, assignee, dan tenggat (dipakai kalender).
 - `document` — metadata file; isi file disimpan di `UPLOAD_DIR` atau R2.
 - `link_note` — bookmark dengan deskripsi dan tag.
+- `activity_log` — audit aktivitas sementara (retensi 24 jam) untuk halaman
+  Log aktivitas khusus owner.
 - Tabel `user`, `session`, `account`, `verification` dikelola Better Auth.
 
 ## Konvensi backend

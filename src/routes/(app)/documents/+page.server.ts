@@ -53,7 +53,7 @@ export const actions = {
 
 		const { project, user, membership } = await requireProject(parsed.data.projectId);
 
-		return updateDocumentAction(project.id, user.id, membership.role, data);
+		return updateDocumentAction(project, user, membership.role, data, request.headers);
 	},
 
 	deleteDocument: async ({ request }) => {
@@ -63,6 +63,6 @@ export const actions = {
 
 		const { project, user, membership } = await requireProject(parsed.data.projectId);
 
-		return deleteDocumentAction(project.id, user.id, membership.role, data);
+		return deleteDocumentAction(project, user, membership.role, data, request.headers);
 	}
 } satisfies Actions;

@@ -28,6 +28,16 @@
 		{ label: 'Dokumen', href: resolve('/(app)/documents'), icon: 'file', match: '/documents' },
 		...(canManage
 			? [{ label: 'Tim', href: resolve('/(app)/team'), icon: 'users', match: '/team' }]
+			: []),
+		...(data.role === 'owner'
+			? [
+					{
+						label: 'Log aktivitas',
+						href: resolve('/(app)/activity'),
+						icon: 'activity',
+						match: '/activity'
+					}
+				]
 			: [])
 	]);
 

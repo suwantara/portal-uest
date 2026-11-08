@@ -1,8 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { logActivity } from '#lib/server/activity.ts';
 import { auth } from '#lib/server/auth.ts';
 import { isRegistrationEnabled } from '#lib/server/registration.ts';
 import { registerSchema } from '#lib/server/schemas.ts';
 import { formDataToObject, parseFormData } from '#lib/server/validation.ts';
+import { ensureWorkspaceMembership, getWorkspaceContext } from '#lib/server/workspace.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -36,8 +38,10 @@ export const actions = {
 		const email = parsed.data.email.toLowerCase();
 		const password = parsed.data.password;
 
+		let signedUp: Awaited<ReturnType<typeof auth.api.signUpEmail>>;
+
 		try {
-			await auth.api.signUpEmail({
+			signedUp = await auth.api.signUpEmail({
 				body: { name, email, password }
 			});
 		} catch (error) {
@@ -47,6 +51,23 @@ export const actions = {
 					: 'Pendaftaran gagal. Periksa kembali data Anda.';
 
 			return fail(400, { name, email, error: message });
+		}
+
+		try {
+			const context =
+				(await getWorkspaceContext(signedUp.user.id)) ??
+				(await ensureWorkspaceMembership(signedUp.user.id));
+
+			await logActivity({
+				workspaceId: context.workspace.id,
+				actor: signedUp.user,
+				action: 'auth.register',
+				category: 'auth',
+				description: 'Mendaftar dan bergabung dengan workspace',
+				headers: request.headers
+			});
+		} catch (error) {
+			console.error('[register] Failed to record registration activity', error);
 		}
 
 		redirect(303, '/dashboard');

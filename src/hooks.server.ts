@@ -4,7 +4,14 @@ import { building } from '$app/env';
 import { auth } from '#lib/server/auth.ts';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 
-const PROTECTED_PREFIXES = ['/dashboard', '/projects', '/documents', '/team', '/settings'];
+const PROTECTED_PREFIXES = [
+	'/dashboard',
+	'/projects',
+	'/documents',
+	'/team',
+	'/settings',
+	'/activity'
+];
 
 function isProtected(pathname: string): boolean {
 	return PROTECTED_PREFIXES.some(

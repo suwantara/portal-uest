@@ -51,3 +51,7 @@ export async function requireProject(projectId: string) {
 export function requireManager(role: WorkspaceRole): void {
 	if (!canManage(role)) error(403, 'Hanya owner atau admin yang dapat melakukan aksi ini');
 }
+
+export function requireOwner(role: WorkspaceRole): void {
+	if (role !== 'owner') error(403, 'Hanya owner yang dapat mengakses halaman ini');
+}

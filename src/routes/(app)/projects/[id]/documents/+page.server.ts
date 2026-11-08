@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { desc, eq } from 'drizzle-orm';
+import { logActivity } from '#lib/server/activity.ts';
 import { db } from '#lib/server/db/index.ts';
 import { document, user as userTable } from '#lib/server/db/schema.ts';
 import { requireProject } from '#lib/server/auth-guard.ts';
@@ -88,13 +89,28 @@ export const actions = {
 			for (const file of files) {
 				const uploaded = await saveUpload(project.id, file);
 				savedKeys.push(uploaded.storageKey);
-				await db.insert(document).values({
-					projectId: project.id,
-					name: uploaded.name,
-					mimeType: uploaded.mimeType,
-					size: uploaded.size,
-					storageKey: uploaded.storageKey,
-					uploadedBy: user.id
+				const [created] = await db
+					.insert(document)
+					.values({
+						projectId: project.id,
+						name: uploaded.name,
+						mimeType: uploaded.mimeType,
+						size: uploaded.size,
+						storageKey: uploaded.storageKey,
+						uploadedBy: user.id
+					})
+					.returning({ id: document.id });
+
+				await logActivity({
+					workspaceId: workspace.id,
+					actor: user,
+					action: 'document.upload',
+					category: 'document',
+					description: `Mengunggah dokumen “${uploaded.name}”`,
+					project,
+					entityType: 'document',
+					entityId: created.id,
+					headers: request.headers
 				});
 			}
 		} catch (error) {
@@ -108,11 +124,23 @@ export const actions = {
 
 	updateDocument: async ({ request, params }) => {
 		const { project, user, membership } = await requireProject(params.id);
-		return updateDocumentAction(project.id, user.id, membership.role, await request.formData());
+		return updateDocumentAction(
+			project,
+			user,
+			membership.role,
+			await request.formData(),
+			request.headers
+		);
 	},
 
 	deleteDocument: async ({ request, params }) => {
 		const { project, user, membership } = await requireProject(params.id);
-		return deleteDocumentAction(project.id, user.id, membership.role, await request.formData());
+		return deleteDocumentAction(
+			project,
+			user,
+			membership.role,
+			await request.formData(),
+			request.headers
+		);
 	}
 } satisfies Actions;

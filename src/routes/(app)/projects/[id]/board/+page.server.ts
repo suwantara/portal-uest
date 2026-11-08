@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq, sql } from 'drizzle-orm';
+import { logActivity } from '#lib/server/activity.ts';
 import { db } from '#lib/server/db/index.ts';
 import { boardColumn, task, user as userTable } from '#lib/server/db/schema.ts';
 import { requireManager, requireProject } from '#lib/server/auth-guard.ts';
@@ -65,27 +66,27 @@ export const actions = {
 	updateProject: updateProjectAction,
 
 	createTask: async ({ request, params }) => {
-		const { project, workspace, user } = await requireProject(params.id);
-		return createTaskAction(project.id, workspace.id, user.id, await request.formData());
+		const { project, user } = await requireProject(params.id);
+		return createTaskAction(project, user, await request.formData(), request.headers);
 	},
 
 	updateTask: async ({ request, params }) => {
-		const { project } = await requireProject(params.id);
-		return updateTaskAction(project.id, await request.formData());
+		const { project, user } = await requireProject(params.id);
+		return updateTaskAction(project, user, await request.formData(), request.headers);
 	},
 
 	deleteTask: async ({ request, params }) => {
-		const { project } = await requireProject(params.id);
-		return deleteTaskAction(project.id, await request.formData());
+		const { project, user } = await requireProject(params.id);
+		return deleteTaskAction(project, user, await request.formData(), request.headers);
 	},
 
 	moveTask: async ({ request, params }) => {
-		const { project } = await requireProject(params.id);
-		return moveTaskAction(project.id, await request.formData());
+		const { project, user } = await requireProject(params.id);
+		return moveTaskAction(project, user, await request.formData(), request.headers);
 	},
 
 	createColumn: async ({ request, params }) => {
-		const { project, membership } = await requireProject(params.id);
+		const { project, workspace, membership, user } = await requireProject(params.id);
 		requireManager(membership.role);
 
 		const data = await request.formData();
@@ -97,18 +98,33 @@ export const actions = {
 			.from(boardColumn)
 			.where(eq(boardColumn.projectId, project.id));
 
-		await db.insert(boardColumn).values({
-			projectId: project.id,
-			name: parsed.data.name,
-			position: Number(position),
-			isDone: parsed.data.isDone
+		const [created] = await db
+			.insert(boardColumn)
+			.values({
+				projectId: project.id,
+				name: parsed.data.name,
+				position: Number(position),
+				isDone: parsed.data.isDone
+			})
+			.returning({ id: boardColumn.id });
+
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'column.create',
+			category: 'project',
+			description: `Membuat kolom “${parsed.data.name}” di project “${project.name}”`,
+			project,
+			entityType: 'column',
+			entityId: created.id,
+			headers: request.headers
 		});
 
 		return { success: true };
 	},
 
 	updateColumn: async ({ request, params }) => {
-		const { project, membership } = await requireProject(params.id);
+		const { project, workspace, membership, user } = await requireProject(params.id);
 		requireManager(membership.role);
 
 		const data = await request.formData();
@@ -123,11 +139,23 @@ export const actions = {
 
 		if (!updated.length) return fail(404, { error: 'Kolom tidak ditemukan.' });
 
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'column.update',
+			category: 'project',
+			description: `Memperbarui kolom “${parsed.data.name}” di project “${project.name}”`,
+			project,
+			entityType: 'column',
+			entityId: parsed.data.columnId,
+			headers: request.headers
+		});
+
 		return { success: true };
 	},
 
 	deleteColumn: async ({ request, params }) => {
-		const { project, membership } = await requireProject(params.id);
+		const { project, workspace, membership, user } = await requireProject(params.id);
 		requireManager(membership.role);
 
 		const data = await request.formData();
@@ -155,11 +183,23 @@ export const actions = {
 
 		await db.delete(boardColumn).where(eq(boardColumn.id, columnId));
 
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'column.delete',
+			category: 'project',
+			description: `Menghapus kolom “${column.name}” dari project “${project.name}”`,
+			project,
+			entityType: 'column',
+			entityId: columnId,
+			headers: request.headers
+		});
+
 		return { success: true };
 	},
 
 	moveColumn: async ({ request, params }) => {
-		const { project, membership } = await requireProject(params.id);
+		const { project, workspace, membership, user } = await requireProject(params.id);
 		requireManager(membership.role);
 
 		const data = await request.formData();
@@ -191,6 +231,18 @@ export const actions = {
 				.update(boardColumn)
 				.set({ position: current.position })
 				.where(eq(boardColumn.id, target.id));
+		});
+
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'column.move',
+			category: 'project',
+			description: `Menggeser kolom “${current.name}” ke ${direction === 'up' ? 'atas' : 'bawah'} di project “${project.name}”`,
+			project,
+			entityType: 'column',
+			entityId: columnId,
+			headers: request.headers
 		});
 
 		return { success: true };

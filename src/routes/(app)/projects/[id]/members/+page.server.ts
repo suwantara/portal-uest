@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq } from 'drizzle-orm';
+import { logActivity } from '#lib/server/activity.ts';
 import { db } from '#lib/server/db/index.ts';
 import { projectMember, user as userTable, workspaceMember } from '#lib/server/db/schema.ts';
 import { requireManager, requireProject } from '#lib/server/auth-guard.ts';
@@ -41,7 +42,7 @@ export const actions = {
 	updateProject: updateProjectAction,
 
 	addMember: async ({ request, params }) => {
-		const { project, workspace, membership } = await requireProject(params.id);
+		const { project, workspace, membership, user } = await requireProject(params.id);
 		requireManager(membership.role);
 
 		const parsed = parseFormData(projectMemberSchema, await request.formData());
@@ -56,13 +57,31 @@ export const actions = {
 
 		if (!target) return fail(404, { error: 'Anggota workspace tidak ditemukan.' });
 
+		const [targetUser] = await db
+			.select({ name: userTable.name, email: userTable.email })
+			.from(userTable)
+			.where(eq(userTable.id, parsed.data.userId))
+			.limit(1);
+
 		await addProjectMember(project.id, parsed.data.userId);
+
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'project.member.add',
+			category: 'project',
+			description: `Menambahkan “${targetUser?.name ?? 'Anggota'}” ke project “${project.name}”`,
+			project,
+			entityType: 'project_member',
+			entityId: parsed.data.userId,
+			headers: request.headers
+		});
 
 		return { success: true };
 	},
 
 	removeMember: async ({ request, params }) => {
-		const { project, membership } = await requireProject(params.id);
+		const { project, workspace, membership, user } = await requireProject(params.id);
 		requireManager(membership.role);
 
 		const parsed = parseFormData(projectMemberSchema, await request.formData());
@@ -77,7 +96,25 @@ export const actions = {
 
 		if (!target) return fail(404, { error: 'Anggota project tidak ditemukan.' });
 
+		const [targetUser] = await db
+			.select({ name: userTable.name, email: userTable.email })
+			.from(userTable)
+			.where(eq(userTable.id, parsed.data.userId))
+			.limit(1);
+
 		await removeProjectMember(project.id, parsed.data.userId);
+
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'project.member.remove',
+			category: 'project',
+			description: `Mengeluarkan “${targetUser?.name ?? 'Anggota'}” dari project “${project.name}”`,
+			project,
+			entityType: 'project_member',
+			entityId: parsed.data.userId,
+			headers: request.headers
+		});
 
 		return { success: true };
 	}

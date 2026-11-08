@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq, sql } from 'drizzle-orm';
+import { logActivity } from '#lib/server/activity.ts';
 import { db } from '#lib/server/db/index.ts';
 import {
 	boardColumn,
@@ -20,6 +21,12 @@ import {
 } from '#lib/server/schemas.ts';
 import { parseFormData } from '#lib/server/validation.ts';
 import type { Actions, PageServerLoad } from './$types';
+
+const ROLE_LABEL: Record<string, string> = {
+	owner: 'Owner',
+	admin: 'Admin',
+	member: 'Member'
+};
 
 export const load: PageServerLoad = async ({ url }) => {
 	const { workspace, membership } = await requireWorkspace();
@@ -66,7 +73,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
 export const actions = {
 	createMember: async ({ request }) => {
-		const { workspace, membership } = await requireWorkspace();
+		const { workspace, membership, user } = await requireWorkspace();
 		requireManager(membership.role);
 
 		const data = await request.formData();
@@ -114,6 +121,17 @@ export const actions = {
 					);
 			}
 
+			await logActivity({
+				workspaceId: workspace.id,
+				actor: user,
+				action: 'member.create',
+				category: 'member',
+				description: `Membuat akun anggota “${name}” (${email}) dengan role ${ROLE_LABEL[role]}`,
+				entityType: 'user',
+				entityId: created.id,
+				headers: request.headers
+			});
+
 			return { success: true, name };
 		} catch (error) {
 			console.error('[team] Failed to create member', error);
@@ -151,12 +169,29 @@ export const actions = {
 			return fail(400, { error: 'Role owner tidak dapat diubah.' });
 		}
 
+		const [targetUser] = await db
+			.select({ name: userTable.name, email: userTable.email })
+			.from(userTable)
+			.where(eq(userTable.id, userId))
+			.limit(1);
+
 		await db
 			.update(workspaceMember)
 			.set({ role })
 			.where(
 				and(eq(workspaceMember.userId, userId), eq(workspaceMember.workspaceId, workspace.id))
 			);
+
+		await logActivity({
+			workspaceId: workspace.id,
+			actor: user,
+			action: 'member.role.update',
+			category: 'member',
+			description: `Mengubah role “${targetUser?.name ?? 'Anggota'}” dari ${ROLE_LABEL[target.role]} menjadi ${ROLE_LABEL[role]}`,
+			entityType: 'user',
+			entityId: userId,
+			headers: request.headers
+		});
 
 		return { success: true };
 	},
@@ -210,6 +245,17 @@ export const actions = {
 
 			await context.internalAdapter.deleteUserSessions(userId);
 
+			await logActivity({
+				workspaceId: workspace.id,
+				actor: user,
+				action: 'member.password.reset',
+				category: 'member',
+				description: `Mereset password “${targetUser?.name ?? 'Anggota'}” (${targetUser?.email ?? 'tanpa email'})`,
+				entityType: 'user',
+				entityId: userId,
+				headers: request.headers
+			});
+
 			return { success: true, name: targetUser?.name ?? 'Anggota' };
 		} catch (error) {
 			console.error('[team] Failed to reset member password', error);
@@ -243,7 +289,7 @@ export const actions = {
 		}
 
 		const [targetUser] = await db
-			.select({ name: userTable.name })
+			.select({ name: userTable.name, email: userTable.email })
 			.from(userTable)
 			.where(eq(userTable.id, userId))
 			.limit(1);
@@ -251,6 +297,17 @@ export const actions = {
 		try {
 			const context = await auth.$context;
 			await context.internalAdapter.deleteUser(userId);
+
+			await logActivity({
+				workspaceId: workspace.id,
+				actor: user,
+				action: 'member.delete',
+				category: 'member',
+				description: `Menghapus akun “${targetUser?.name ?? 'Anggota'}” (${targetUser?.email ?? 'tanpa email'}) dari workspace`,
+				entityType: 'user',
+				entityId: userId,
+				headers: request.headers
+			});
 
 			return { success: true, name: targetUser?.name ?? 'Anggota' };
 		} catch (error) {
