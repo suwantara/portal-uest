@@ -144,7 +144,7 @@
 		</div>
 
 		<div class="divide-y divide-slate-100">
-			{#each data.members as member (member.id)}
+			{#each data.members as member, index (member.id)}
 				<div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
 					<div class="flex min-w-0 flex-1 items-center gap-3">
 						<Avatar name={member.name} />
@@ -224,7 +224,9 @@
 									<Icon name="more" size={16} />
 								</summary>
 								<div
-									class="absolute right-0 z-20 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+									class={`absolute right-0 z-30 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-xl ${
+										index === data.members.length - 1 ? 'bottom-full mb-1' : 'top-full mt-1'
+									}`}
 								>
 									<button
 										type="button"
